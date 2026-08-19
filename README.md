@@ -2,7 +2,7 @@
 
 Desktop toolkit for distributing encrypted audio lessons and PDFs as a single `.audiobundle` file. Everything runs locally. There is no cloud, server, account system, or network requirement.
 
-This repository is being built in milestones. **Milestone 4 (current)** adds the Admin desktop UI for project editing and bundle generation.
+This repository is being built in milestones. **Milestone 5 (current)** adds the Client desktop UI for opening encrypted bundles.
 
 ## Status
 
@@ -12,7 +12,7 @@ This repository is being built in milestones. **Milestone 4 (current)** adds the
 | 2 | Crypto engine | Implemented |
 | 3 | Bundle reader/writer | Implemented |
 | 4 | Admin UI | Implemented |
-| 5 | Client UI | Not started |
+| 5 | Client UI | Implemented |
 | 6 | Audio player | Not started |
 | 7 | PDF viewer | Not started |
 | 8 | PyInstaller packaging | Not started |
@@ -35,7 +35,7 @@ source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
-PySide6 is included so the Admin application can run offline on the desktop.
+PySide6 is included so the Admin and Client applications can run offline on the desktop.
 
 ## Tests
 
@@ -56,7 +56,7 @@ audio-bundle-admin
 3. **Save** writes `project.json` (never passwords).
 4. **Generate Bundle** asks for a main password and one password per block, then encrypts a `.audiobundle` on a background thread.
 
-Opening a bundle in the Client UI is Milestone 5. The sample editable project lives at `samples/admin_project/project.json`.
+Opening a bundle: run `audio-bundle-client` (Milestone 5). The sample editable project lives at `samples/admin_project/project.json`.
 
 ### Run the Client application
 
@@ -64,7 +64,10 @@ Opening a bundle in the Client UI is Milestone 5. The sample editable project li
 audio-bundle-client
 ```
 
-Open a `.audiobundle`, enter the main password, then unlock individual blocks with their passwords.
+1. Choose a `.audiobundle` and enter the **main password**.
+2. The course title and locked blocks appear. Unlock a block with its password.
+3. The content viewer lists files in the administrator’s order. Audio uses a basic player; PDFs open in the embedded viewer. Full transport controls and PDF zoom/search are Milestones 6–7.
+4. Closing the bundle deletes the private temporary decrypt folder.
 
 ### Encryption (high level)
 

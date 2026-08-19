@@ -90,6 +90,10 @@ Implemented in `audio_bundle.core.crypto`, independent of Qt:
 
 `audio_bundle.admin` is a PySide6 app. `ProjectWorkspace` copies imported files into `blocks/<block-id>/`, saves `project.json`, and calls `write_bundle` from a worker thread. Passwords are collected only in the generate dialog.
 
+## Client UI (Milestone 5)
+
+`audio_bundle.client` opens a bundle on a worker thread, lists locked blocks, unlocks with a block password, and decrypts selected files into a process-private temp directory (`TemporaryContentStore`) for Qt Multimedia / Qt PDF. `ClientSession` owns cleanup.
+
 ## What is deferred
 
-* Client UI, audio player, PDF viewer, PyInstaller specs.
+* Full audio transport (seek, speed, playlist), richer PDF tools, PyInstaller specs.
