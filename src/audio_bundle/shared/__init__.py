@@ -11,6 +11,7 @@ from audio_bundle.shared.constants import (
 from audio_bundle.shared.errors import (
     AudioBundleError,
     AuthenticationError,
+    BundleError,
     CryptoError,
     ModelError,
     ValidationError,
@@ -28,6 +29,7 @@ __all__ = [
     "PROJECT_SCHEMA_VERSION",
     "AudioBundleError",
     "AuthenticationError",
+    "BundleError",
     "CryptoError",
     "ModelError",
     "ValidationError",

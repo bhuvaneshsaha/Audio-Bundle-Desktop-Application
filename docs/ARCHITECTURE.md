@@ -82,6 +82,10 @@ Implemented in `audio_bundle.core.crypto`, independent of Qt:
 * Envelope wrap of random bundle/block keys
 * SHA-256 check for plaintext after decrypt
 
+## Bundle I/O (Milestone 3)
+
+`audio_bundle.core.bundle.write_bundle` / `open_bundle` produce a single encrypted file. Tests and later UI should call these APIs rather than parsing bytes in widgets.
+
 ## What is deferred
 
-* Bundle bytes, Qt windows, audio, PDF, PyInstaller specs (placeholders only under `packaging/`).
+* Qt windows, audio, PDF, PyInstaller specs (placeholders only under `packaging/`).

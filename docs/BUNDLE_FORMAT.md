@@ -1,6 +1,6 @@
 # `.audiobundle` format (version 1)
 
-This is the contracted layout for Milestone 3. Milestone 1 only defines the logical manifests that will be serialized inside encrypted chunks.
+This is the implemented layout for format version 1.
 
 Integers are **little-endian**. The file is a magic header, a sequence of length-prefixed chunks, and a footer used to detect truncation.
 
@@ -26,26 +26,41 @@ Each chunk:
 N bytes   payload
 ```
 
-Unknown chunk types with the “critical” flag set must fail the read. Optional chunks may be skipped **only after** the outer manifest is authenticated, and never for crypto-critical types.
-
-Planned chunk types:
+Unknown chunk types with the “critical” flag set must fail the read. Version 1 writes every chunk as critical; unknown types are rejected.
 
 | Type | Encrypted | Purpose |
 | --- | --- | --- |
-| `KDFP` | no | Argon2id parameters + 16-byte salt for the **main** password |
-| `WKEY` | AEAD | Bundle key wrapped with KEK derived from the main password |
-| `EMAN` | AEAD | Outer `BundleManifest` JSON (UTF-8) |
-| `BKDF` | no | Per-block Argon2id parameters + salt (one chunk per block, or packed) |
-| `BWKY` | AEAD | Block key wrapped with KEK from the **block** password |
+| `KDFP` | no | Argon2id parameters + salt for the **main** password |
+| `WKEY` | AEAD | Bundle key wrapped with the main-password KEK |
+| `EMAN` | AEAD | Outer `BundleManifest` JSON (UTF-8, compact, sorted keys) |
+| `BKDF` | no | Argon2id parameters + salt for one block password |
+| `BWKY` | AEAD | Block key wrapped with that block’s KEK |
 | `BMAN` | AEAD | Inner `BundleBlockContents` JSON |
-| `BLOB` | AEAD | One media file ciphertext |
+| `BLOB` | AEAD | One media file (`nonce || ciphertext || tag`) |
 | `FEND` | no | End marker before footer |
 
-Associated data (AAD) for every AES-256-GCM blob binds:
+Chunk order:
 
-* `format_version`
-* chunk type
-* bundle id (once known; for `WKEY` use a fixed AAD of magic + version + “main-wrap”)
+```text
+KDFP, WKEY, EMAN,
+(BKDF, BWKY, BMAN, BLOB*)*,
+FEND
+```
+
+Block groups follow the outer manifest order. `BLOB` chunks for a block follow that block’s inner file order. `BLOB` payload is AEAD ciphertext only (`nonce || ciphertext || tag`).
+
+AAD (via `bind_aad`) is:
+
+```text
+BUNDLE_MAGIC || uint16 format_version || chunk_type || context
+```
+
+| Chunk | Context |
+| --- | --- |
+| `WKEY` | `main-wrap` |
+| `EMAN` | `outer-manifest` |
+| `BWKY` / `BMAN` | UTF-8 block id |
+| `BLOB` | UTF-8 blob id |
 
 This prevents splicing a valid ciphertext into the wrong slot.
 
