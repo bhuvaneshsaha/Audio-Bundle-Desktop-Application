@@ -49,6 +49,7 @@ class ProjectWorkspace:
         self.root = Path(root).resolve()
         self.project = project
         self.dirty = False
+        self._block_passwords: dict[str, str] = {}
 
     @property
     def project_file(self) -> Path:
@@ -88,12 +89,40 @@ class ProjectWorkspace:
         self.project.touch()
         self.dirty = True
 
-    def add_block(self, name: str) -> Block:
-        block = Block(name=name, id=new_id())
+    def set_autoplay_on_open(self, enabled: bool) -> None:
+        self.project.autoplay_on_open = bool(enabled)
+        self.project.touch()
+        self.dirty = True
+
+    def next_block_name(self) -> str:
+        used: set[int] = set()
+        for block in self.project.blocks:
+            prefix = "Block "
+            if block.name.startswith(prefix):
+                suffix = block.name[len(prefix) :]
+                if suffix.isdigit():
+                    used.add(int(suffix))
+        number = 1
+        while number in used:
+            number += 1
+        return f"Block {number}"
+
+    def add_block(self, name: str | None = None) -> Block:
+        block = Block(name=name or self.next_block_name(), id=new_id())
         self.project.add_block(block)
         (self.root / "blocks" / block.id).mkdir(parents=True, exist_ok=True)
         self.dirty = True
         return block
+
+    def set_block_password(self, block_id: str, password: str) -> None:
+        self.project.get_block(block_id)
+        self._block_passwords[block_id] = password
+
+    def block_password(self, block_id: str) -> str:
+        return self._block_passwords.get(block_id, "")
+
+    def session_block_passwords(self) -> dict[str, str]:
+        return dict(self._block_passwords)
 
     def rename_block(self, block_id: str, name: str) -> Block:
         block = self.project.get_block(block_id)
@@ -104,6 +133,7 @@ class ProjectWorkspace:
 
     def remove_block(self, block_id: str) -> None:
         self.project.remove_block(block_id)
+        self._block_passwords.pop(block_id, None)
         folder = self.root / "blocks" / block_id
         if folder.exists():
             shutil.rmtree(folder)
@@ -196,7 +226,7 @@ class ProjectWorkspace:
         output_path: Path,
         *,
         main_password: str,
-        block_passwords: dict[str, str],
+        block_passwords: dict[str, str] | None = None,
         engine: CryptoEngine | None = None,
     ) -> Path:
         if self.dirty:
@@ -205,7 +235,7 @@ class ProjectWorkspace:
             self.project,
             output_path,
             main_password=main_password,
-            block_passwords=block_passwords,
+            block_passwords=block_passwords if block_passwords is not None else self.session_block_passwords(),
             source_root=self.root,
             engine=engine,
         )

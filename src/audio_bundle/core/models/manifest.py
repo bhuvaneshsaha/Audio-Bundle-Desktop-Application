@@ -176,6 +176,7 @@ class BundleManifest:
     bundle_id: str = field(default_factory=new_id)
     created_at: datetime = field(default_factory=utc_now)
     blocks: list[BundleBlockSummary] = field(default_factory=list)
+    autoplay_on_open: bool = False
 
     def __post_init__(self) -> None:
         self.title = require_non_empty_name(self.title, field="Bundle title")
@@ -196,6 +197,7 @@ class BundleManifest:
             "bundle_id": self.bundle_id,
             "title": self.title,
             "created_at": isoformat_utc(self.created_at),
+            "autoplay_on_open": self.autoplay_on_open,
             "blocks": [block.to_dict() for block in self.blocks],
         }
 
@@ -222,6 +224,7 @@ class BundleManifest:
                 else utc_now()
             ),
             blocks=blocks,
+            autoplay_on_open=bool(payload.get("autoplay_on_open", False)),
         )
 
     @classmethod
@@ -232,6 +235,7 @@ class BundleManifest:
             raise ValidationError("Expected a Project model.", code="invalid_project")
         return cls(
             title=project.name,
+            autoplay_on_open=bool(getattr(project, "autoplay_on_open", False)),
             blocks=[
                 BundleBlockSummary(id=block.id, name=block.name, order=block.order)
                 for block in project.blocks

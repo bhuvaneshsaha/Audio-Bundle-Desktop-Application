@@ -3,6 +3,7 @@ from __future__ import annotations
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
+    QCheckBox,
     QHBoxLayout,
     QInputDialog,
     QLabel,
@@ -46,6 +47,10 @@ class ProjectWindow(QWidget):
         header.addWidget(save)
         header.addWidget(generate)
         layout.addLayout(header)
+        self._autoplay = QCheckBox("Auto-play the first audio file when a client opens a block")
+        self._autoplay.setChecked(self._workspace.project.autoplay_on_open)
+        self._autoplay.toggled.connect(self._set_autoplay)
+        layout.addWidget(self._autoplay)
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
         left = QWidget()
@@ -114,6 +119,10 @@ class ProjectWindow(QWidget):
                     break
         self._blocks.setCurrentRow(row)
 
+    def _set_autoplay(self, enabled: bool) -> None:
+        self._workspace.set_autoplay_on_open(enabled)
+        self._update_title()
+
     def _on_block_selected(self, row: int) -> None:
         if row < 0 or row >= len(self._workspace.project.blocks):
             self._editor.show_block(None)
@@ -138,11 +147,8 @@ class ProjectWindow(QWidget):
         self._update_title()
 
     def _add_block(self) -> None:
-        name, ok = QInputDialog.getText(self, "Add block", "Block name")
-        if not ok:
-            return
         try:
-            block = self._workspace.add_block(name)
+            block = self._workspace.add_block()
         except Exception as exc:
             QMessageBox.warning(self, "Audio Bundle", user_message(exc))
             return
@@ -195,6 +201,7 @@ class ProjectWindow(QWidget):
         self._update_title()
 
     def _generate(self) -> None:
+        self._editor.flush_password()
         try:
             self._workspace.set_name(self._name.text())
             self._workspace.save()
@@ -203,6 +210,18 @@ class ProjectWindow(QWidget):
             return
         if not self._workspace.project.blocks:
             QMessageBox.information(self, "Generate Bundle", "Add at least one block before generating a bundle.")
+            return
+        missing = [
+            block.name
+            for block in self._workspace.project.blocks
+            if not self._workspace.block_password(block.id)
+        ]
+        if missing:
+            QMessageBox.warning(
+                self,
+                "Generate Bundle",
+                "Set a password on every block before generating:\n- " + "\n- ".join(missing),
+            )
             return
         dialog = BundleGeneratorDialog(self._workspace, self)
         dialog.exec()

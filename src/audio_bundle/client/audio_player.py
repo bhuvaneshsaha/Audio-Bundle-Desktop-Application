@@ -123,7 +123,20 @@ class AudioPlayer(QWidget):
         self._player.play()
 
     def stop(self) -> None:
+        """Stop playback without advancing to the next track."""
+        self._suppress_finished = True
         self._player.stop()
+
+    def reset(self) -> None:
+        # Clear current file before stop() so a synchronous EndOfMedia cannot
+        # request a file id from the previous block.
+        self._suppress_finished = True
+        self._current = None
+        self._files = []
+        self._player.stop()
+        self._player.setSource(QUrl())
+        self._now.setText("No audio selected")
+        self._error.setText("")
 
     def _toggle_play(self) -> None:
         if self._player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
@@ -150,12 +163,23 @@ class AudioPlayer(QWidget):
     def _on_state(self, state: QMediaPlayer.PlaybackState) -> None:
         playing = state == QMediaPlayer.PlaybackState.PlayingState
         self._play.setText("Pause" if playing else "Play")
-        if playing:
-            self._suppress_finished = False
 
     def _on_status(self, status: QMediaPlayer.MediaStatus) -> None:
-        if status == QMediaPlayer.MediaStatus.EndOfMedia and not self._suppress_finished:
-            self._play_next()
+        if status in (
+            QMediaPlayer.MediaStatus.LoadedMedia,
+            QMediaPlayer.MediaStatus.BufferedMedia,
+        ):
+            self._suppress_finished = False
+            return
+        if status != QMediaPlayer.MediaStatus.EndOfMedia:
+            return
+        if self._suppress_finished or self._current is None:
+            return
+        duration = self._player.duration()
+        position = self._player.position()
+        if duration <= 0 or position < max(0, duration - 250):
+            return
+        self._play_next()
 
     def _on_error(self, *_args: object) -> None:
         message = self._player.errorString() or "Audio playback failed."

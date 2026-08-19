@@ -24,6 +24,7 @@ from audio_bundle.client.bundle_view import BundleView
 from audio_bundle.client.workers import OpenBundleWorker
 from audio_bundle.core.bundle.session import ClientSession
 from audio_bundle.shared.constants import BUNDLE_EXTENSION
+from audio_bundle.shared.qt_paths import last_dir, remember_path
 
 
 class MainWindow(QMainWindow):
@@ -94,14 +95,16 @@ class MainWindow(QMainWindow):
         return page
 
     def _browse(self) -> None:
+        start = self._path.text() or last_dir("Client", "last_bundle_dir")
         path, _ = QFileDialog.getOpenFileName(
             self,
             "Open Audio Bundle",
-            self._path.text(),
+            start,
             f"Audio Bundle (*{BUNDLE_EXTENSION})",
         )
         if path:
             self._path.setText(path)
+            remember_path("Client", "last_bundle_dir", path)
 
     def _open_bundle(self) -> None:
         path = self._path.text().strip()

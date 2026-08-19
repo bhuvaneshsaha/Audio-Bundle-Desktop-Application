@@ -74,6 +74,7 @@ Outer manifest (`EMAN`) — **no filenames, no blob ids**:
   "bundle_id": "uuid",
   "title": "Course Name",
   "created_at": "2026-01-15T12:00:00+00:00",
+  "autoplay_on_open": false,
   "blocks": [
     { "id": "uuid", "name": "Introduction", "order": 0 }
   ]

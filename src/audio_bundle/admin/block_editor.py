@@ -16,9 +16,11 @@ from PySide6.QtWidgets import (
 
 from audio_bundle.admin.constants import FILE_FILTER
 from audio_bundle.admin.file_list import ReorderList, file_item
+from audio_bundle.admin.password_field import PasswordField
 from audio_bundle.admin.workers import ImportFilesWorker
 from audio_bundle.core.storage.workspace import ProjectWorkspace
 from audio_bundle.shared.messages import user_message
+from audio_bundle.shared.qt_paths import last_dir, remember_path
 
 
 class BlockEditor(QWidget):
@@ -35,6 +37,14 @@ class BlockEditor(QWidget):
         self._title = QLabel("Select a block")
         self._title.setStyleSheet("font-size: 18px; font-weight: 600;")
         layout.addWidget(self._title)
+
+        self._password = PasswordField("Block password")
+        self._password.editingFinished().connect(self._store_password)
+        self._password.textEdited().connect(lambda _text: self._store_password())
+        hint = QLabel("This password is kept for this session only. It is not saved in the project file.")
+        hint.setWordWrap(True)
+        layout.addWidget(self._password)
+        layout.addWidget(hint)
 
         self._files = ReorderList()
         self._files.setAccessibleName("Block files")
@@ -62,22 +72,33 @@ class BlockEditor(QWidget):
         self.show_block(None)
 
     def show_block(self, block_id: str | None) -> None:
+        self._store_password()
         self._block_id = block_id
         if self._workspace is None or block_id is None:
             self._title.setText("Select a block")
             self._files.clear()
+            self._password.setText("")
             self._set_enabled(False)
             return
         block = self._workspace.project.get_block(block_id)
         self._title.setText(block.name)
+        self._password.setText(self._workspace.block_password(block_id))
         self._files.clear()
         for item in block.items:
             self._files.addItem(file_item(item))
         self._set_enabled(True)
 
     def _set_enabled(self, enabled: bool) -> None:
-        for widget in (self._files, self._add, self._rename, self._remove):
+        for widget in (self._files, self._add, self._rename, self._remove, self._password):
             widget.setEnabled(enabled)
+
+    def flush_password(self) -> None:
+        self._store_password()
+
+    def _store_password(self) -> None:
+        if self._workspace is None or self._block_id is None:
+            return
+        self._workspace.set_block_password(self._block_id, self._password.text())
 
     def _on_reorder(self) -> None:
         if self._workspace is None or self._block_id is None:
@@ -93,9 +114,12 @@ class BlockEditor(QWidget):
     def _import_files(self) -> None:
         if self._workspace is None or self._block_id is None:
             return
-        paths, _ = QFileDialog.getOpenFileNames(self, "Import files", str(self._workspace.root), FILE_FILTER)
+        self._store_password()
+        start = last_dir("Admin", "last_import_dir", str(Path.home()))
+        paths, _ = QFileDialog.getOpenFileNames(self, "Import files", start, FILE_FILTER)
         if not paths:
             return
+        remember_path("Admin", "last_import_dir", paths[0])
         self._add.setEnabled(False)
         self._thread = QThread(self)
         self._worker = ImportFilesWorker(self._workspace, self._block_id, [Path(p) for p in paths])

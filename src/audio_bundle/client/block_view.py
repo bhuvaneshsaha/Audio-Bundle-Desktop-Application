@@ -21,6 +21,7 @@ from audio_bundle.client.workers import DecryptFileWorker
 from audio_bundle.core.bundle.session import ClientSession
 from audio_bundle.core.models.manifest import BundleFileEntry
 from audio_bundle.core.models.media_type import MediaType
+from audio_bundle.core.playback import audio_entries
 
 
 class BlockView(QWidget):
@@ -33,6 +34,7 @@ class BlockView(QWidget):
         self._thread: QThread | None = None
         self._worker: DecryptFileWorker | None = None
         self._progress: QProgressDialog | None = None
+        self._request_id = 0
         layout = QVBoxLayout(self)
         self._title = QLabel("Block")
         self._title.setStyleSheet("font-size: 22px; font-weight: 600;")
@@ -40,7 +42,7 @@ class BlockView(QWidget):
         splitter = QSplitter(Qt.Orientation.Horizontal)
         self._files = QListWidget()
         self._files.setAccessibleName("Block contents")
-        self._files.currentRowChanged.connect(self._on_file_selected)
+        self._files.currentItemChanged.connect(self._on_item_changed)
         splitter.addWidget(self._files)
         self._stack = QStackedWidget()
         self._empty = QLabel("Select a file to decrypt and view it in the application.")
@@ -64,6 +66,7 @@ class BlockView(QWidget):
         contents = session.block_contents(block_id)
         self._title.setText(contents.name)
         self._audio.set_files(contents.files)
+        self._files.blockSignals(True)
         self._files.clear()
         for entry in contents.files:
             kind = "PDF" if entry.media_type is MediaType.PDF else "Audio"
@@ -71,33 +74,68 @@ class BlockView(QWidget):
             row.setData(Qt.ItemDataRole.UserRole, entry.id)
             row.setToolTip(entry.original_filename)
             self._files.addItem(row)
+        self._files.setCurrentRow(-1)
+        self._files.blockSignals(False)
         self._stack.setCurrentWidget(self._empty)
-        if self._files.count():
-            self._files.setCurrentRow(0)
+        if session.opened.manifest.autoplay_on_open:
+            first_audio = audio_entries(contents.files)
+            if first_audio:
+                self._select_file(first_audio[0].id)
 
     def stop(self) -> None:
-        self._audio.stop()
+        self._cancel_decrypt()
+        self._audio.reset()
         self._pdf.clear()
 
-    def _on_file_selected(self, row: int) -> None:
-        if self._session is None or self._block_id is None or row < 0:
-            return
+    def _cancel_decrypt(self) -> None:
+        self._request_id += 1
+        self._close_progress()
+
+    def _file_id_at(self, row: int) -> str | None:
         item = self._files.item(row)
         if item is None:
+            return None
+        value = item.data(Qt.ItemDataRole.UserRole)
+        if not isinstance(value, str) or not value:
+            return None
+        return value
+
+    def _on_item_changed(self, current: QListWidgetItem | None, _previous: QListWidgetItem | None) -> None:
+        if current is None:
             return
-        file_id = str(item.data(Qt.ItemDataRole.UserRole))
+        file_id = current.data(Qt.ItemDataRole.UserRole)
+        if isinstance(file_id, str) and file_id:
+            self._decrypt(file_id)
+
+    def _select_file(self, file_id: str) -> None:
+        for row in range(self._files.count()):
+            item = self._files.item(row)
+            if item is not None and str(item.data(Qt.ItemDataRole.UserRole)) == file_id:
+                if self._files.currentRow() == row:
+                    self._decrypt(file_id)
+                else:
+                    self._files.setCurrentRow(row)
+                return
+
+    def _decrypt(self, file_id: str) -> None:
+        if self._session is None or self._block_id is None:
+            return
+        contents = self._session.block_contents(self._block_id)
+        if file_id not in {entry.id for entry in contents.files}:
+            return
         self._audio.stop()
+        self._cancel_decrypt()
+        request_id = self._request_id
         self._progress = QProgressDialog("Decrypting…", None, 0, 0, self)
-        self._progress.setWindowModality(Qt.WindowModality.ApplicationModal)
-        self._progress.setMinimumDuration(0)
+        self._progress.setWindowModality(Qt.WindowModality.WindowModal)
+        self._progress.setMinimumDuration(250)
         self._progress.setCancelButton(None)
-        self._progress.show()
         self._thread = QThread(self)
         self._worker = DecryptFileWorker(self._session, self._block_id, file_id)
         self._worker.moveToThread(self._thread)
         self._thread.started.connect(self._worker.run)
-        self._worker.finished.connect(self._on_decrypted)
-        self._worker.failed.connect(self._on_decrypt_failed)
+        self._worker.finished.connect(lambda entry, path, rid=request_id: self._on_decrypted(rid, entry, path))
+        self._worker.failed.connect(lambda message, rid=request_id: self._on_decrypt_failed(rid, message))
         self._worker.finished.connect(self._thread.quit)
         self._worker.failed.connect(self._thread.quit)
         self._thread.start()
@@ -107,8 +145,12 @@ class BlockView(QWidget):
             self._progress.close()
             self._progress = None
 
-    def _on_decrypted(self, entry: BundleFileEntry, path: Path) -> None:
+    def _on_decrypted(self, request_id: int, entry: object, path: object) -> None:
+        if request_id != self._request_id:
+            return
         self._close_progress()
+        if not isinstance(entry, BundleFileEntry) or not isinstance(path, Path):
+            return
         if entry.media_type is MediaType.PDF:
             self._pdf.load(entry, path)
             self._stack.setCurrentWidget(self._pdf)
@@ -116,17 +158,9 @@ class BlockView(QWidget):
             self._audio.load(entry, path)
             self._stack.setCurrentWidget(self._audio)
 
-    def _select_file(self, file_id: str) -> None:
-        for row in range(self._files.count()):
-            item = self._files.item(row)
-            if item is not None and str(item.data(Qt.ItemDataRole.UserRole)) == file_id:
-                if self._files.currentRow() == row:
-                    self._on_file_selected(row)
-                else:
-                    self._files.setCurrentRow(row)
-                return
-
-    def _on_decrypt_failed(self, message: str) -> None:
+    def _on_decrypt_failed(self, request_id: int, message: str) -> None:
+        if request_id != self._request_id:
+            return
         self._close_progress()
         self._stack.setCurrentWidget(self._empty)
         QMessageBox.warning(self, "Audio Bundle", message)

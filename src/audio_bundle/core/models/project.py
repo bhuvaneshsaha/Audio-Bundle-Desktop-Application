@@ -27,6 +27,7 @@ class Project:
     created_at: datetime = field(default_factory=utc_now)
     updated_at: datetime = field(default_factory=utc_now)
     blocks: list[Block] = field(default_factory=list)
+    autoplay_on_open: bool = False
 
     def __post_init__(self) -> None:
         self.name = require_non_empty_name(self.name, field="Project name")
@@ -85,6 +86,7 @@ class Project:
             "name": self.name,
             "created_at": isoformat_utc(self.created_at),
             "updated_at": isoformat_utc(self.updated_at),
+            "autoplay_on_open": self.autoplay_on_open,
             "blocks": [block.to_dict() for block in self.blocks],
         }
 
@@ -108,4 +110,5 @@ class Project:
             created_at=parse_datetime(created_at, field="created_at") if created_at else utc_now(),
             updated_at=parse_datetime(updated_at, field="updated_at") if updated_at else utc_now(),
             blocks=blocks,
+            autoplay_on_open=bool(payload.get("autoplay_on_open", False)),
         )

@@ -45,6 +45,7 @@ def test_client_session_main_and_block_passwords(tmp_path: Path) -> None:
     session.unlock_block(block_id, passwords[block_id])
     names = [entry.display_name for entry in session.block_contents(block_id).files]
     assert names == ["welcome", "notes"]
+    assert session.opened.manifest.autoplay_on_open is False
     entry, path = session.materialize_file(block_id, session.block_contents(block_id).files[0].id)
     assert entry.media_type.value == "audio"
     assert path.read_bytes() == b"audio-bytes"
