@@ -2,7 +2,7 @@
 
 Desktop toolkit for distributing encrypted audio lessons and PDFs as a single `.audiobundle` file. Everything runs locally. There is no cloud, server, account system, or network requirement.
 
-This repository is being built in milestones. **Milestone 3 (current)** implements the versioned `.audiobundle` reader/writer on top of the crypto engine. Admin/Client UIs come later.
+This repository is being built in milestones. **Milestone 4 (current)** adds the Admin desktop UI for project editing and bundle generation.
 
 ## Status
 
@@ -11,7 +11,7 @@ This repository is being built in milestones. **Milestone 3 (current)** implemen
 | 1 | Core models (`Project`, `Block`, `MediaItem`, `BundleManifest`) | Implemented |
 | 2 | Crypto engine | Implemented |
 | 3 | Bundle reader/writer | Implemented |
-| 4 | Admin UI | Not started |
+| 4 | Admin UI | Implemented |
 | 5 | Client UI | Not started |
 | 6 | Audio player | Not started |
 | 7 | PDF viewer | Not started |
@@ -35,13 +35,15 @@ source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
+PySide6 is included so the Admin application can run offline on the desktop.
+
 ## Tests
 
 ```bash
 pytest
 ```
 
-## How this will work (once later milestones land)
+## How to run
 
 ### Run the Admin application
 
@@ -49,7 +51,12 @@ pytest
 audio-bundle-admin
 ```
 
-Create a project, add blocks, import audio/PDF files, drag to reorder, then **Generate Bundle**. Passwords are entered at generation time and are never written to the project file.
+1. **New project** — choose a parent folder and course name. The app creates `project.json`, `blocks/`, and `output/`.
+2. Add blocks, then **Add files** to import MP3/WAV/M4A/AAC or PDF. Drag the ☰ rows to set playback/display order.
+3. **Save** writes `project.json` (never passwords).
+4. **Generate Bundle** asks for a main password and one password per block, then encrypts a `.audiobundle` on a background thread.
+
+Opening a bundle in the Client UI is Milestone 5. The sample editable project lives at `samples/admin_project/project.json`.
 
 ### Run the Client application
 
@@ -58,10 +65,6 @@ audio-bundle-client
 ```
 
 Open a `.audiobundle`, enter the main password, then unlock individual blocks with their passwords.
-
-### Create a project / generate a bundle / open a bundle
-
-Not available until Milestones 3–5. The sample editable project lives at `samples/admin_project/project.json`.
 
 ### Encryption (high level)
 
