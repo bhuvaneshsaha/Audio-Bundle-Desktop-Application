@@ -77,12 +77,21 @@ Main and block passwords derive key-encryption keys with Argon2id. Random AES-25
 
 ### Standalone executables
 
+Windows PowerShell:
+
+```powershell
+pip install -e ".[packaging]"
+.\packaging\build.ps1
+```
+
+macOS/Linux:
+
 ```bash
 pip install -e ".[packaging]"
 bash packaging/build.sh
 ```
 
-See [packaging/README.md](packaging/README.md). Outputs: `dist/AudioBundleAdmin` and `dist/AudioBundleClient`.
+See [packaging/README.md](packaging/README.md). Outputs: `dist/AudioBundleAdmin` and `dist/AudioBundleClient` (`.exe` on Windows).
 
 ## License
 
