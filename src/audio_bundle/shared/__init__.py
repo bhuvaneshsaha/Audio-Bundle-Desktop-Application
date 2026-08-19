@@ -8,7 +8,13 @@ from audio_bundle.shared.constants import (
     PDF_EXTENSIONS,
     PROJECT_SCHEMA_VERSION,
 )
-from audio_bundle.shared.errors import AudioBundleError, ModelError, ValidationError
+from audio_bundle.shared.errors import (
+    AudioBundleError,
+    AuthenticationError,
+    CryptoError,
+    ModelError,
+    ValidationError,
+)
 from audio_bundle.shared.utilities import isoformat_utc, new_id, utc_now
 
 __all__ = [
@@ -21,6 +27,8 @@ __all__ = [
     "PDF_EXTENSIONS",
     "PROJECT_SCHEMA_VERSION",
     "AudioBundleError",
+    "AuthenticationError",
+    "CryptoError",
     "ModelError",
     "ValidationError",
     "isoformat_utc",

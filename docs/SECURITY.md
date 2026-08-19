@@ -26,14 +26,17 @@ Content keys are random. Changing a password later re-wraps keys; it does not re
 
 The **main** password must not unwrap block keys. Seeing the course outline after the main password is intended; lesson bytes are not.
 
-## Algorithms (Milestone 2)
+## Milestone 2 status
+
+Implemented in `audio_bundle.core.crypto`: Argon2id KDF, AES-256-GCM, envelope wrap/unwrap, AAD binding, SHA-256 verify-after-decrypt. Unit tests use `KdfProfile.TEST` (low memory). Production generate uses 64 MiB Argon2id.
+
+## Algorithms
 
 | Use | Algorithm | Library |
 | --- | --- | --- |
-| Password KDF | Argon2id | `argon2-cffi` / `hashing` via `cryptography` where available |
+| Password KDF | Argon2id | `argon2-cffi` (`hash_secret_raw`, Type.ID) |
 | Content & wrapping | AES-256-GCM | `cryptography` (`AESGCM`) |
-| Nonces | 12 random bytes per encryption | `os.urandom` / `secrets` |
-| Salts | 16+ random bytes | same |
+| Nonces / salts / keys | CSPRNG | `secrets.token_bytes` |
 
 No hand-rolled primitives. No AES-CBC+HMAC invented locally.
 

@@ -2,14 +2,14 @@
 
 Desktop toolkit for distributing encrypted audio lessons and PDFs as a single `.audiobundle` file. Everything runs locally. There is no cloud, server, account system, or network requirement.
 
-This repository is being built in milestones. **Milestone 1 (current)** implements core data models and project serialization only. Admin/Client UIs, encryption, and packaging come later.
+This repository is being built in milestones. **Milestone 2 (current)** implements the crypto engine (Argon2id + AES-256-GCM envelope encryption). Admin/Client UIs and `.audiobundle` I/O come later.
 
 ## Status
 
 | Milestone | Scope | Status |
 | --- | --- | --- |
 | 1 | Core models (`Project`, `Block`, `MediaItem`, `BundleManifest`) | Implemented |
-| 2 | Crypto engine | Not started |
+| 2 | Crypto engine | Implemented |
 | 3 | Bundle reader/writer | Not started |
 | 4 | Admin UI | Not started |
 | 5 | Client UI | Not started |

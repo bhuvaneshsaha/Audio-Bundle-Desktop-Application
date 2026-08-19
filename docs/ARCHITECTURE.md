@@ -73,6 +73,15 @@ MyCourse/
 
 KDF, encryption, import, and bundle write/read run off the GUI thread. Models themselves are plain dataclasses.
 
+## Crypto (Milestone 2)
+
+Implemented in `audio_bundle.core.crypto`, independent of Qt:
+
+* Argon2id password KDF (`KdfProfile.PRODUCTION` vs `TEST`)
+* AES-256-GCM with random 12-byte nonces and bound AAD
+* Envelope wrap of random bundle/block keys
+* SHA-256 check for plaintext after decrypt
+
 ## What is deferred
 
-* Crypto engine, bundle bytes, Qt windows, audio, PDF, PyInstaller specs (placeholders only under `packaging/`).
+* Bundle bytes, Qt windows, audio, PDF, PyInstaller specs (placeholders only under `packaging/`).

@@ -20,3 +20,27 @@ MAX_ITEMS_PER_BLOCK = 2000
 AUDIO_EXTENSIONS: frozenset[str] = frozenset({".mp3", ".wav", ".m4a", ".aac"})
 PDF_EXTENSIONS: frozenset[str] = frozenset({".pdf"})
 SUPPORTED_EXTENSIONS: frozenset[str] = AUDIO_EXTENSIONS | PDF_EXTENSIONS
+
+AES_KEY_SIZE = 32
+GCM_NONCE_SIZE = 12
+GCM_TAG_SIZE = 16
+KDF_SALT_SIZE = 16
+KDF_HASH_LEN = 32
+KDF_ALGORITHM = "argon2id"
+
+# Production Argon2id. Run off the UI thread; do not use these values in unit tests.
+KDF_TIME_COST = 3
+KDF_MEMORY_KIB = 64 * 1024
+KDF_PARALLELISM = 1
+
+# Tests only. Explicitly opted into via KdfProfile.TEST.
+TEST_KDF_TIME_COST = 1
+TEST_KDF_MEMORY_KIB = 32
+TEST_KDF_PARALLELISM = 1
+
+MAX_PASSWORD_BYTES = 1024
+AAD_CHUNK_MAIN_WRAP = b"WKEY"
+AAD_CHUNK_BLOCK_WRAP = b"BWKY"
+AAD_CHUNK_OUTER_MANIFEST = b"EMAN"
+AAD_CHUNK_INNER_MANIFEST = b"BMAN"
+AAD_CHUNK_BLOB = b"BLOB"

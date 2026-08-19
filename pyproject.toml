@@ -9,12 +9,14 @@ description = "Offline desktop application for encrypted audio/PDF lesson bundle
 readme = "README.md"
 requires-python = ">=3.12"
 authors = [{ name = "Internal" }]
-dependencies = []
+dependencies = [
+    "cryptography>=43.0",
+    "argon2-cffi>=23.1",
+]
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
 ui = ["PySide6>=6.7"]
-crypto = ["cryptography>=43.0", "argon2-cffi>=23.1"]
 
 [project.scripts]
 audio-bundle-admin = "audio_bundle.admin.__main__:main"
