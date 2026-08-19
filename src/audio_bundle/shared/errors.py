@@ -32,3 +32,8 @@ class AuthenticationError(CryptoError):
 
     def __init__(self, message: str, *, code: str = "authentication_error") -> None:
         super().__init__(message, code=code)
+
+
+class BundleError(AudioBundleError):
+    def __init__(self, message: str, *, code: str = "bundle_error") -> None:
+        super().__init__(message, code=code)
