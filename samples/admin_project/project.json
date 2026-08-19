@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "id": "11111111-1111-4111-8111-111111111111",
+  "name": "Sample Course",
+  "created_at": "2026-01-15T12:00:00+00:00",
+  "updated_at": "2026-01-15T12:30:00+00:00",
+  "blocks": [
+    {
+      "id": "22222222-2222-4222-8222-222222222222",
+      "name": "Introduction",
+      "order": 0,
+      "items": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "display_name": "Welcome audio",
+          "original_filename": "welcome.mp3",
+          "relative_source_path": "blocks/block-001/welcome.mp3",
+          "media_type": "audio",
+          "order": 0,
+          "size_bytes": 0,
+          "source_sha256": null
+        },
+        {
+          "id": "44444444-4444-4444-8444-444444444444",
+          "display_name": "Syllabus",
+          "original_filename": "syllabus.pdf",
+          "relative_source_path": "blocks/block-001/syllabus.pdf",
+          "media_type": "pdf",
+          "order": 1,
+          "size_bytes": 0,
+          "source_sha256": null
+        }
+      ]
+    },
+    {
+      "id": "55555555-5555-4555-8555-555555555555",
+      "name": "Lesson 1",
+      "order": 1,
+      "items": [
+        {
+          "id": "66666666-6666-4666-8666-666666666666",
+          "display_name": "Lesson audio",
+          "original_filename": "lesson.wav",
+          "relative_source_path": "blocks/block-002/lesson.wav",
+          "media_type": "audio",
+          "order": 0,
+          "size_bytes": 0,
+          "source_sha256": null
+        }
+      ]
+    },
+    {
+      "id": "77777777-7777-4777-8777-777777777777",
+      "name": "Exercises",
+      "order": 2,
+      "items": []
+    }
+  ]
+}
