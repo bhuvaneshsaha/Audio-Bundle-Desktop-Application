@@ -51,6 +51,7 @@ class BlockView(QWidget):
         self._stack.addWidget(self._empty)
         self._stack.addWidget(self._audio)
         self._stack.addWidget(self._pdf)
+        self._audio.requestFile.connect(self._select_file)
         splitter.addWidget(self._stack)
         splitter.setStretchFactor(0, 1)
         splitter.setStretchFactor(1, 2)
@@ -62,6 +63,7 @@ class BlockView(QWidget):
         self._block_id = block_id
         contents = session.block_contents(block_id)
         self._title.setText(contents.name)
+        self._audio.set_files(contents.files)
         self._files.clear()
         for entry in contents.files:
             kind = "PDF" if entry.media_type is MediaType.PDF else "Audio"
@@ -113,6 +115,16 @@ class BlockView(QWidget):
         else:
             self._audio.load(entry, path)
             self._stack.setCurrentWidget(self._audio)
+
+    def _select_file(self, file_id: str) -> None:
+        for row in range(self._files.count()):
+            item = self._files.item(row)
+            if item is not None and str(item.data(Qt.ItemDataRole.UserRole)) == file_id:
+                if self._files.currentRow() == row:
+                    self._on_file_selected(row)
+                else:
+                    self._files.setCurrentRow(row)
+                return
 
     def _on_decrypt_failed(self, message: str) -> None:
         self._close_progress()

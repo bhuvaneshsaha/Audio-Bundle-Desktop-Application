@@ -2,7 +2,7 @@
 
 Desktop toolkit for distributing encrypted audio lessons and PDFs as a single `.audiobundle` file. Everything runs locally. There is no cloud, server, account system, or network requirement.
 
-This repository is being built in milestones. **Milestone 5 (current)** adds the Client desktop UI for opening encrypted bundles.
+This repository is being built in milestones. **Milestones 1–8 are implemented**: core crypto/bundle format, Admin and Client UIs, full audio/PDF viewing, and PyInstaller specs.
 
 ## Status
 
@@ -13,9 +13,9 @@ This repository is being built in milestones. **Milestone 5 (current)** adds the
 | 3 | Bundle reader/writer | Implemented |
 | 4 | Admin UI | Implemented |
 | 5 | Client UI | Implemented |
-| 6 | Audio player | Not started |
-| 7 | PDF viewer | Not started |
-| 8 | PyInstaller packaging | Not started |
+| 6 | Audio player | Implemented |
+| 7 | PDF viewer | Implemented |
+| 8 | PyInstaller packaging | Implemented |
 
 Design documents:
 
@@ -66,8 +66,10 @@ audio-bundle-client
 
 1. Choose a `.audiobundle` and enter the **main password**.
 2. The course title and locked blocks appear. Unlock a block with its password.
-3. The content viewer lists files in the administrator’s order. Audio uses a basic player; PDFs open in the embedded viewer. Full transport controls and PDF zoom/search are Milestones 6–7.
+3. The content viewer lists files in the administrator’s order. Audio includes play/pause/stop, next/previous, ±10s seek, a seek bar, volume/mute, and speed from 0.5x–2x. When a track ends, the next **audio** item starts (PDFs are skipped). PDFs open in an embedded viewer with page navigation, fit page/width, zoom, scroll, and text search when Qt PDF supports it.
 4. Closing the bundle deletes the private temporary decrypt folder.
+
+A sample bundle is at `samples/Sample_Course.audiobundle` (passwords in `samples/admin_project/README.md`).
 
 ### Encryption (high level)
 
@@ -75,7 +77,12 @@ Main and block passwords derive key-encryption keys with Argon2id. Random AES-25
 
 ### Standalone executables
 
-PyInstaller specs will live under `packaging/` in Milestone 8.
+```bash
+pip install -e ".[packaging]"
+bash packaging/build.sh
+```
+
+See [packaging/README.md](packaging/README.md). Outputs: `dist/AudioBundleAdmin` and `dist/AudioBundleClient`.
 
 ## License
 

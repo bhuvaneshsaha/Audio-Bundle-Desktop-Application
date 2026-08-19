@@ -94,6 +94,10 @@ Implemented in `audio_bundle.core.crypto`, independent of Qt:
 
 `audio_bundle.client` opens a bundle on a worker thread, lists locked blocks, unlocks with a block password, and decrypts selected files into a process-private temp directory (`TemporaryContentStore`) for Qt Multimedia / Qt PDF. `ClientSession` owns cleanup.
 
-## What is deferred
+## Client playback (Milestones 6–7)
 
-* Full audio transport (seek, speed, playlist), richer PDF tools, PyInstaller specs.
+Sequential audio order is computed in `audio_bundle.core.playback` (PDFs are not tracks). The Client `AudioPlayer` and `PdfViewer` widgets provide transport, speed, volume, page navigation, zoom, and search. Temp files are still cleaned up by `ClientSession`.
+
+## Packaging (Milestone 8)
+
+`packaging/admin.spec` and `packaging/client.spec` produce windowed one-file binaries via PyInstaller.
