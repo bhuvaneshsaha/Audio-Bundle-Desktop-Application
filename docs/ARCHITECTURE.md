@@ -1,6 +1,6 @@
 # Architecture
 
-Milestone 1 defines the package layout and in-memory models. UI, cryptography, and `.audiobundle` I/O are intentionally not implemented yet.
+Shared `core` holds models, validation, crypto, bundle I/O, and the Admin `ProjectWorkspace`. Qt widgets call those APIs and do not encrypt or parse bundle bytes.
 
 ## Package layout
 
@@ -55,7 +55,7 @@ What the client may read after a **block** password: file entries in admin order
 
 `ordered_audio_files()` skips PDFs so sequential playback can walk audio items without treating documents as tracks.
 
-## Admin project on disk (planned)
+## Admin project on disk
 
 ```text
 MyCourse/
@@ -69,9 +69,9 @@ MyCourse/
 
 `project.json` is UTF-8 JSON. Load/save reject any password/secret keys.
 
-## Threading (later UI)
+## Threading
 
-KDF, encryption, import, and bundle write/read run off the GUI thread. Models themselves are plain dataclasses.
+KDF, encryption, import, and bundle write run off the GUI thread (`QThread` workers). Models themselves are plain dataclasses.
 
 ## Crypto (Milestone 2)
 
@@ -86,6 +86,10 @@ Implemented in `audio_bundle.core.crypto`, independent of Qt:
 
 `audio_bundle.core.bundle.write_bundle` / `open_bundle` produce a single encrypted file. Tests and later UI should call these APIs rather than parsing bytes in widgets.
 
+## Admin UI (Milestone 4)
+
+`audio_bundle.admin` is a PySide6 app. `ProjectWorkspace` copies imported files into `blocks/<block-id>/`, saves `project.json`, and calls `write_bundle` from a worker thread. Passwords are collected only in the generate dialog.
+
 ## What is deferred
 
-* Qt windows, audio, PDF, PyInstaller specs (placeholders only under `packaging/`).
+* Client UI, audio player, PDF viewer, PyInstaller specs.
