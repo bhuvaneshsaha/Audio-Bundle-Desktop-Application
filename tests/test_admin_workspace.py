@@ -72,6 +72,30 @@ def test_import_rejects_unsupported_type(tmp_path: Path) -> None:
     assert exc.value.code == "unsupported_file_type"
 
 
+def test_numbered_blocks_session_passwords_and_autoplay(tmp_path: Path) -> None:
+    workspace = ProjectWorkspace.create(tmp_path, "Numbers")
+    first = workspace.add_block()
+    second = workspace.add_block()
+    assert first.name == "Block 1"
+    assert second.name == "Block 2"
+    workspace.remove_block(first.id)
+    third = workspace.add_block()
+    assert third.name == "Block 1"
+    workspace.set_block_password(second.id, "alpha")
+    workspace.set_block_password(third.id, "beta")
+    workspace.set_autoplay_on_open(True)
+    workspace.save()
+    payload = json.loads(workspace.project_file.read_text(encoding="utf-8"))
+    assert payload["autoplay_on_open"] is True
+    assert "alpha" not in json.dumps(payload)
+    assert "beta" not in json.dumps(payload)
+    assert "password" not in json.dumps(payload).lower()
+    reloaded = ProjectWorkspace.open(workspace.project_file)
+    assert reloaded.project.autoplay_on_open is True
+    assert reloaded.block_password(second.id) == ""
+    assert [block.name for block in reloaded.project.blocks] == ["Block 2", "Block 1"]
+
+
 def test_duplicate_project_folder_rejected(tmp_path: Path) -> None:
     ProjectWorkspace.create(tmp_path, "Same")
     with pytest.raises(BundleError) as exc:

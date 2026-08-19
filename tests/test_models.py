@@ -172,15 +172,18 @@ def test_load_project_rejects_embedded_password(tmp_path: Path) -> None:
 
 def test_outer_manifest_hides_file_list() -> None:
     project = Project(name="Course")
+    project.autoplay_on_open = True
     block = project.add_block(Block(name="Lesson 1"))
     block.add_item(_audio("hidden.mp3"))
     manifest = BundleManifest.from_project(project)
     serialized = manifest.to_dict()
+    assert serialized["autoplay_on_open"] is True
     assert "hidden.mp3" not in json.dumps(serialized)
     assert serialized["blocks"][0]["name"] == "Lesson 1"
     assert "files" not in serialized["blocks"][0]
     restored = BundleManifest.from_dict(serialized)
     assert restored.title == "Course"
+    assert restored.autoplay_on_open is True
     assert restored.blocks[0].id == block.id
 
 

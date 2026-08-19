@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
 from audio_bundle.admin.project_window import ProjectWindow
 from audio_bundle.core.storage.workspace import ProjectWorkspace
 from audio_bundle.shared.messages import user_message
+from audio_bundle.shared.qt_paths import last_dir, remember_path
 
 
 class MainWindow(QMainWindow):
@@ -63,9 +64,12 @@ class MainWindow(QMainWindow):
         return page
 
     def new_project(self) -> None:
-        parent = QFileDialog.getExistingDirectory(self, "Choose a folder for the project")
+        parent = QFileDialog.getExistingDirectory(
+            self, "Choose a folder for the project", last_dir("Admin", "last_project_dir")
+        )
         if not parent:
             return
+        remember_path("Admin", "last_project_dir", parent)
         name, ok = QInputDialog.getText(self, "New project", "Course name")
         if not ok:
             return
@@ -78,10 +82,14 @@ class MainWindow(QMainWindow):
 
     def open_project(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
-            self, "Open project", "", "Admin project (project.json)"
+            self,
+            "Open project",
+            last_dir("Admin", "last_project_dir"),
+            "Admin project (project.json)",
         )
         if not path:
             return
+        remember_path("Admin", "last_project_dir", path)
         try:
             workspace = ProjectWorkspace.open(Path(path))
         except Exception as exc:
