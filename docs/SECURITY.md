@@ -1,0 +1,100 @@
+# Security design
+
+Priority: **confidentiality of media**, **integrity of the bundle**, **no plaintext passwords on disk**. This is not consumer DRM. A determined user who can unlock content on their machine can record audio or screenshot PDFs.
+
+## Key hierarchy (envelope encryption)
+
+```text
+Main password
+    → Argon2id (unique salt, memory-hard params stored in KDFP)
+    → KEK_main (32 bytes)
+    → AES-256-GCM wrap of random BundleKey
+
+BundleKey
+    → encrypts outer manifest (block names/order only)
+
+Each block password
+    → Argon2id (per-block salt)
+    → KEK_block
+    → AES-256-GCM wrap of random BlockKey
+
+BlockKey
+    → encrypts inner manifest and that block’s file blobs
+```
+
+Content keys are random. Changing a password later re-wraps keys; it does not require re-encrypting large audio, as long as the BlockKey is retained in memory during Admin generate.
+
+The **main** password must not unwrap block keys. Seeing the course outline after the main password is intended; lesson bytes are not.
+
+## Algorithms (Milestone 2)
+
+| Use | Algorithm | Library |
+| --- | --- | --- |
+| Password KDF | Argon2id | `argon2-cffi` / `hashing` via `cryptography` where available |
+| Content & wrapping | AES-256-GCM | `cryptography` (`AESGCM`) |
+| Nonces | 12 random bytes per encryption | `os.urandom` / `secrets` |
+| Salts | 16+ random bytes | same |
+
+No hand-rolled primitives. No AES-CBC+HMAC invented locally.
+
+Suggested starting Argon2id parameters (tune on real hardware, always run off the UI thread):
+
+* memory: 64 MiB
+* time: 3
+* parallelism: 1 or 2
+* output: 32 bytes
+
+Parameters are stored next to the salt so older bundles remain readable if defaults change.
+
+## Password storage
+
+Never stored in:
+
+* `project.json`
+* bundle plaintext headers
+* logs
+* Qt settings
+* temp files
+* source
+
+Wrong main or block password: generic failure, no distinction that leaks whether a particular field was tampered vs mistyped **when the wrap blob does not decrypt**. After a successful main unlock, a later GCM failure on `EMAN`/`BLOB` is reported as **corruption/tamper**, not as a wrong password.
+
+## Tamper detection
+
+Fail closed on:
+
+* bad magic / unsupported version
+* footer size mismatch
+* GCM authentication failure
+* inner JSON that fails schema validation
+* plaintext SHA-256 mismatch after decrypt
+* media type not in the allow-list
+
+Never pass unauthenticated bytes to Qt Multimedia or the PDF view.
+
+## Temporary decryption
+
+Prefer decrypting into memory. If Qt requires a file path, use a process-private temp directory with restrictive permissions and delete on block lock, bundle close, and app exit. Document that OS swap, crash dumps, and media backends may still retain copies.
+
+## Admin project risk
+
+The admin tree contains **plaintext source media**. Treat it as a secret alongside passwords. Only the generated `.audiobundle` is meant for clients.
+
+## Known limitations and risks
+
+1. **Offline brute force.** Anyone with the file can try passwords. Argon2id raises cost; it does not stop a weak password.
+2. **Main password oracle vs tamper.** Changing `KDFP`/`WKEY` looks like a wrong password. Acceptable; do not try to be clever with extra unauthenticated checksums that leak state.
+3. **Block names leak after main unlock.** By design. Do not put sensitive material only in block titles if that is a concern.
+4. **No forward secrecy / no revocation.** Distributing a bundle is like handing over a file. Rotate by issuing a new bundle and new passwords.
+5. **Process memory.** Unlocked BlockKeys and plaintext audio exist in RAM while playing.
+6. **Clipboard / screenshots / analog hole.** Out of scope.
+7. **Dependency and supply chain.** Pin hashes at packaging time (Milestone 8).
+8. **Path traversal in projects.** Relative source paths reject `..` and absolute paths (Milestone 1).
+9. **Zip confusion.** The format is not ZIP; the client must not fall back to zipfile.
+
+## Testing bar (Milestone 2+)
+
+* Correct password decrypts; incorrect fails
+* Bit-flip of ciphertext or AAD fails
+* Unique salts in successive generates
+* Nonce reuse is impossible in the writer (new nonce every `encrypt` call)

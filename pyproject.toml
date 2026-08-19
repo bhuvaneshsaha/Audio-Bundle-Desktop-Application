@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "audio-bundle"
+version = "0.1.0"
+description = "Offline desktop application for encrypted audio/PDF lesson bundles"
+readme = "README.md"
+requires-python = ">=3.12"
+authors = [{ name = "Internal" }]
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+ui = ["PySide6>=6.7"]
+crypto = ["cryptography>=43.0", "argon2-cffi>=23.1"]
+
+[project.scripts]
+audio-bundle-admin = "audio_bundle.admin.__main__:main"
+audio-bundle-client = "audio_bundle.client.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-q"
