@@ -70,7 +70,7 @@ class MainWindow(QMainWindow):
         if not parent:
             return
         remember_path("Admin", "last_project_dir", parent)
-        name, ok = QInputDialog.getText(self, "New project", "Course name")
+        name, ok = QInputDialog.getText(self, "New project", "New project name")
         if not ok:
             return
         try:
