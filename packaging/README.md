@@ -10,6 +10,14 @@ pip install -e ".[packaging]"
 
 ## Build
 
+On Windows PowerShell (recommended; do not use `bash packaging/build.sh` unless Git Bash is using LF line endings):
+
+```powershell
+.\packaging\build.ps1
+```
+
+On macOS/Linux, or Git Bash after a Unix-line-ending checkout:
+
 ```bash
 bash packaging/build.sh
 ```

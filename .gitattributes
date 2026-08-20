@@ -1,0 +1,5 @@
+# Shell scripts must use Unix line endings. CRLF makes bash fail with
+# `set: pipefail: invalid option name` (Git Bash / WSL on Windows).
+*.sh text eol=lf
+*.ps1 text eol=crlf
+*.bat text eol=crlf
