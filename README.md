@@ -21,7 +21,9 @@ Design documents:
 
 * [Architecture](docs/ARCHITECTURE.md)
 * [Bundle format](docs/BUNDLE_FORMAT.md)
-* [Security](docs/SECURITY.md)
+* [Security](docs/SECURITY.md) — mechanisms, why they exist, alternatives, future options
+* [Sequence diagrams](docs/SEQUENCE_DIAGRAMS.txt) — paste into [sequencediagram.org](https://sequencediagram.org/) (Admin and Client)
+* [ARB security Q&A](docs/ARB_SECURITY_QA.md)
 
 ## Requirements
 

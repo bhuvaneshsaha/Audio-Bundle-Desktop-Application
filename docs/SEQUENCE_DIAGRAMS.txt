@@ -1,0 +1,172 @@
+# Sequence diagrams for sequencediagram.org
+
+Paste **one diagram at a time** into https://sequencediagram.org/
+
+1. Open the site (see also https://sequencediagram.org/instructions.html).
+2. Select all existing source in the left editor and delete it.
+3. Copy the block between `BEGIN DIAGRAM` and `END DIAGRAM` (do not copy those marker lines).
+4. Use the export control to save PNG/SVG.
+
+There are two diagrams: **Admin** (author builds an encrypted bundle) and **Client** (learner opens and plays it).
+
+================================================================================
+BEGIN DIAGRAM: Admin — create project and generate .audiobundle
+================================================================================
+title Admin: create course and generate encrypted bundle
+
+actor Author
+participant "Admin UI" as UI
+participant "Project workspace\n(session memory)" as WS
+participant "Crypto engine\nArgon2id + AES-GCM" as Crypto
+participant "project.json +\nplaintext media" as Disk
+participant ".audiobundle file" as Bundle
+
+Author->UI: New project (folder + course name)
+UI->WS: create project tree
+WS->Disk: write project.json (no passwords)
+WS-->UI: project open
+
+Author->UI: Add block (default name Block N)
+UI->WS: add_block()
+Author->UI: Set block password (optional Show password)
+note over UI,WS: Password stays in RAM only.\nNever written to project.json
+UI->WS: set_block_password(block id)
+
+Author->UI: Import audio / PDF
+UI->WS: copy files under blocks/
+WS->Disk: plaintext copies + metadata
+WS-->UI: file list in admin order
+
+Author->UI: Save
+UI->WS: save()
+WS->Disk: update project.json (still no passwords)
+
+== Generate Bundle ==
+
+Author->UI: Generate Bundle
+UI->UI: flush session block passwords
+UI->Author: enter main password (+ confirm)
+
+alt a block has no password
+  UI-xAuthor: refuse generate
+else all blocks have passwords
+  UI->WS: generate_bundle(output, main password, block passwords)
+  activate WS
+  WS->Disk: read plaintext media
+  WS->Crypto: new random BundleKey
+  WS->Crypto: Argon2id(main password, unique salt) -> KEK_main
+  Crypto->Crypto: AES-GCM wrap BundleKey (WKEY)
+  WS->Crypto: AES-GCM encrypt outer manifest (EMAN)
+  note right of Crypto: Outer manifest =\ntitle + block names only
+
+  loop each block
+    WS->Crypto: new random BlockKey
+    WS->Crypto: Argon2id(block password, unique salt) -> KEK_block
+    Crypto->Crypto: AES-GCM wrap BlockKey (BWKY)
+    loop each file in block
+      WS->Crypto: SHA-256(plaintext)
+      WS->Crypto: AES-GCM encrypt file (BLOB)
+    end
+    WS->Crypto: AES-GCM encrypt inner file list (BMAN)
+  end
+
+  WS->Bundle: write header, chunks, footer (via .tmp then replace)
+  deactivate WS
+  UI-->Author: bundle path (passwords not saved)
+end
+
+note over Disk,Bundle: Keep the Admin folder secret.\nOnly the .audiobundle is for clients.
+================================================================================
+END DIAGRAM: Admin
+================================================================================
+
+================================================================================
+BEGIN DIAGRAM: Client — open bundle, unlock block, play or view
+================================================================================
+title Client: open bundle, unlock a block, decrypt for playback
+
+actor Learner
+participant "Client UI" as UI
+participant "Client session" as Session
+participant "Crypto engine\nArgon2id + AES-GCM" as Crypto
+participant ".audiobundle" as Bundle
+participant "Private temp dir\n0700" as Temp
+participant "Audio / PDF view" as Player
+
+Learner->UI: choose .audiobundle + main password
+UI->Session: open(path, main password)  [background thread]
+activate Session
+Session->Bundle: read magic, version, footer size
+alt header/version/footer invalid
+  Session-xUI: fail closed
+else file looks complete
+  Session->Bundle: read KDFP + WKEY
+  Session->Crypto: Argon2id(main password, stored salt) -> KEK_main
+  Session->Crypto: AES-GCM unwrap BundleKey
+  alt GCM tag fails on wrap
+    Session-xUI: wrong password or invalid data
+  else BundleKey opened
+    Session->Crypto: AES-GCM decrypt outer manifest (EMAN)
+    alt GCM tag fails on EMAN
+      Session-xUI: corrupted or modified
+    else outline OK
+      Session-->UI: title + locked block names
+    end
+  end
+end
+deactivate Session
+
+== Unlock one block ==
+
+Learner->UI: select block + block password
+UI->Session: unlock_block(block id, password)
+activate Session
+Session->Bundle: read BKDF + BWKY for that block
+Session->Crypto: Argon2id(block password, stored salt) -> KEK_block
+Session->Crypto: AES-GCM unwrap BlockKey (AAD includes block id)
+alt wrap tag fails
+  Session-xUI: wrong block password
+else BlockKey opened
+  Session->Crypto: AES-GCM decrypt inner manifest (BMAN)
+  Session-->UI: file list (names, types, order)
+end
+deactivate Session
+
+== Decrypt a file (user select or admin autoplay) ==
+
+opt autoplay_on_open is true
+  UI->UI: select first audio file
+end
+
+Learner->UI: select audio or PDF
+UI->Session: materialize_file(block id, file id)
+activate Session
+Session->Session: refuse if block still locked
+Session->Bundle: read BLOB
+Session->Crypto: AES-GCM decrypt with BlockKey (AAD includes blob id)
+alt tag fails
+  Session-xUI: corrupted or modified
+else plaintext
+  Session->Crypto: SHA-256 must match inner manifest
+  alt hash mismatch
+    Session-xUI: integrity check failed
+  else allow-listed audio or PDF
+    Session->Temp: write random filename, mode 0600
+    Session-->UI: path for Qt only
+  end
+end
+deactivate Session
+
+UI->Player: play audio or show PDF
+note over Player: Analog hole remains:\nrecord / screenshot possible
+
+== Close ==
+
+Learner->UI: back / close bundle / quit
+UI->Session: close()
+Session->Session: drop BlockKeys from memory
+Session->Temp: delete private directory
+Session-->UI: locked state
+================================================================================
+END DIAGRAM: Client
+================================================================================

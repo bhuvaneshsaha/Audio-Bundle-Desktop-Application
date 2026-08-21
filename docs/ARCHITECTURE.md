@@ -37,7 +37,7 @@ Editable admin document: name, timestamps, ordered `Block` list. Schema versione
 
 ### `Block`
 
-Named ordered list of `MediaItem`. **Passwords are not fields on this model.** They are supplied at bundle generation (Milestone 3/4) and used only to wrap random block keys.
+Named ordered list of `MediaItem`. **Passwords are not fields on this model.** They are held in Admin session memory and used only to wrap random block keys at generate time.
 
 ### `MediaItem`
 
@@ -88,7 +88,9 @@ Implemented in `audio_bundle.core.crypto`, independent of Qt:
 
 ## Admin UI (Milestone 4)
 
-`audio_bundle.admin` is a PySide6 app. `ProjectWorkspace` copies imported files into `blocks/<block-id>/`, saves `project.json`, and calls `write_bundle` from a worker thread. Passwords are collected only in the generate dialog.
+`audio_bundle.admin` is a PySide6 app. `ProjectWorkspace` copies imported files into `blocks/<block-id>/`, saves `project.json`, and calls `write_bundle` from a worker thread. Block passwords are entered on the block editor (session memory only). Generate Bundle collects the main password.
+
+Sequence diagrams for Admin generate and Client open/play: [SEQUENCE_DIAGRAMS.txt](SEQUENCE_DIAGRAMS.txt). Security mechanisms: [SECURITY.md](SECURITY.md).
 
 ## Client UI (Milestone 5)
 
