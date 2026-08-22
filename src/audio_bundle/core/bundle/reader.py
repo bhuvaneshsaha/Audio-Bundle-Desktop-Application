@@ -15,7 +15,7 @@ from audio_bundle.core.crypto.aead import Ciphertext, decrypt
 from audio_bundle.core.crypto.engine import CryptoEngine, SealedKey
 from audio_bundle.core.crypto.hashing import verify_sha256
 from audio_bundle.core.crypto.kdf import KdfParams
-from audio_bundle.core.models.manifest import BundleBlockContents, BundleFileEntry, BundleManifest
+from audio_bundle.core.models.manifest import BundleBlockContents, BundleBlockSummary, BundleFileEntry, BundleManifest
 from audio_bundle.shared.constants import (
     AAD_CHUNK_BLOB,
     AAD_CHUNK_BLOCK_WRAP,
@@ -96,21 +96,37 @@ class OpenedBundle:
     _parsed: ParsedBundle
     _bundle_key: bytes
 
-    def unlock_block(self, block_id: str, password: str) -> UnlockedBlock:
+    def unlock_block(self, block_id: str, password: str | None = None) -> UnlockedBlock:
         for index, summary in enumerate(self.manifest.blocks):
             if summary.id == block_id:
-                return self._unlock_region(index, summary.id, password)
+                return self._unlock_region(index, summary, password)
         raise BundleError("Block not found in this bundle.", code="block_not_found")
 
-    def _unlock_region(self, index: int, block_id: str, password: str) -> UnlockedBlock:
+    def _unlock_region(self, index: int, summary: BundleBlockSummary, password: str | None) -> UnlockedBlock:
+        block_id = summary.id
         region: BlockRegion = self._parsed.blocks[index]
         block_context = block_id.encode("utf-8")
-        block_key = self._engine.open_key(
-            password,
-            _sealed(region.kdf, region.wrapped_key),
-            aad=bind_aad(AAD_CHUNK_BLOCK_WRAP, context=block_context),
-            failure="wrong_password",
-        )
+        sealed = _sealed(region.kdf, region.wrapped_key)
+        wrap_aad = bind_aad(AAD_CHUNK_BLOCK_WRAP, context=block_context)
+        if sealed.params.wraps_with_bundle_key:
+            block_key = self._engine.open_wrapped_with_key(
+                self._bundle_key,
+                sealed,
+                aad=wrap_aad,
+                failure="tampered",
+            )
+        else:
+            if not password:
+                raise AuthenticationError(
+                    "The password is incorrect or the data is not valid.",
+                    code="wrong_password",
+                )
+            block_key = self._engine.open_key(
+                password,
+                sealed,
+                aad=wrap_aad,
+                failure="wrong_password",
+            )
         plaintext = decrypt(
             block_key,
             Ciphertext.from_bytes(region.encrypted_manifest),

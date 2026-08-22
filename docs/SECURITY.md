@@ -13,14 +13,35 @@ Main password
 BundleKey
     → encrypts outer manifest (block names/order only)
 
-Each block password
+Each custom-password block
     → Argon2id (per-block salt)
     → KEK_block
     → AES-256-GCM wrap of random BlockKey
 
+Windows-auth and no-password blocks
+    → BlockKey wrapped with the BundleKey (AES-256-GCM)
+    → Client still requires Windows sign-in for `windows` blocks (access control, not a cryptographic bind to AD)
+
 BlockKey
     → encrypts inner manifest and that block’s file blobs
 ```
+
+The official Client always asks for **Windows username and password** before any bundle is opened (shared PCs). Windows Hello / PIN / fingerprint is offered when the platform supports verifying the *currently logged-on* user; shared kiosks should keep using typed credentials so a different person can sign in.
+
+**Active Directory:** the same LogonUser path accepts `DOMAIN\user` and `user@upn`. Allow-lists may include those names or `group:DOMAIN\\Group`. Group membership checks are recorded for AD-joined machines.
+
+This is not consumer DRM. A modified unofficial client that already has the main password can unwrap Windows/no-password blocks without calling LogonUser. Treat Windows auth as a **gate on the shipped Client**, plus an allow-list.
+
+## Client policies (Admin settings)
+
+* **Single active block** (default on for new projects): unlocking a block locks the previous one and deletes its temp files.
+* **Sequential unlock** (default on for new projects): block *n* cannot open until blocks `0..n-1` have been opened at least once in this session.
+
+Old bundles that omit these flags keep the previous behaviour (both off).
+
+## Keyboard shortcuts
+
+The Client lists shortcuts under F1 (play/pause, seek, back, block list). Intended for keyboard-only and screen-reader use.
 
 Content keys are random. Changing a password later re-wraps keys; it does not require re-encrypting large audio, as long as the BlockKey is retained in memory during Admin generate.
 

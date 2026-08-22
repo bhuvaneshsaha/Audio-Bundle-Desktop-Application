@@ -8,6 +8,7 @@ import pytest
 from audio_bundle.core.bundle import open_bundle
 from audio_bundle.core.crypto import CryptoEngine, KdfProfile
 from audio_bundle.core.storage.workspace import ProjectWorkspace
+from audio_bundle.core.validation.fields import assert_no_secret_fields
 from audio_bundle.shared.errors import BundleError, ValidationError
 
 
@@ -53,7 +54,7 @@ def test_create_save_reload_and_generate(tmp_path: Path) -> None:
         engine=_engine(),
     )
     payload = json.loads(reloaded.project_file.read_text(encoding="utf-8"))
-    assert "password" not in json.dumps(payload).lower()
+    assert_no_secret_fields(payload)
     opened = open_bundle(bundle_path, "main-secret")
     assert [block.name for block in opened.manifest.blocks] == ["Lesson 1", "Introduction"]
     block = next(block for block in opened.manifest.blocks if block.name == "Introduction")
@@ -89,7 +90,7 @@ def test_numbered_blocks_session_passwords_and_autoplay(tmp_path: Path) -> None:
     assert payload["autoplay_on_open"] is True
     assert "alpha" not in json.dumps(payload)
     assert "beta" not in json.dumps(payload)
-    assert "password" not in json.dumps(payload).lower()
+    assert_no_secret_fields(payload)
     reloaded = ProjectWorkspace.open(workspace.project_file)
     assert reloaded.project.autoplay_on_open is True
     assert reloaded.block_password(second.id) == ""

@@ -8,6 +8,7 @@ from argon2.low_level import Type, hash_secret_raw
 from audio_bundle.core.crypto.random import random_salt
 from audio_bundle.shared.constants import (
     KDF_ALGORITHM,
+    KDF_BUNDLE_WRAP,
     KDF_HASH_LEN,
     KDF_MEMORY_KIB,
     KDF_PARALLELISM,
@@ -22,6 +23,7 @@ from audio_bundle.shared.errors import CryptoError, ValidationError
 
 ARGON2_VERSION = 19
 _KDF_RECORD_MAGIC = b"ARG2"
+_BUNDLE_WRAP_MAGIC = b"BNDL"
 
 
 class KdfProfile(StrEnum):
@@ -53,7 +55,7 @@ class KdfParams:
         salt: bytes,
         hash_len: int = KDF_HASH_LEN,
     ) -> None:
-        if algorithm != KDF_ALGORITHM:
+        if algorithm not in {KDF_ALGORITHM, KDF_BUNDLE_WRAP}:
             raise CryptoError(f"Unsupported KDF '{algorithm}'.", code="unsupported_kdf")
         if time_cost < 1 or memory_kib < 8 or parallelism < 1:
             raise CryptoError("KDF parameters are too weak or invalid.", code="invalid_kdf_params")
@@ -88,9 +90,24 @@ class KdfParams:
             salt=random_salt(),
         )
 
+    @classmethod
+    def bundle_wrap(cls) -> KdfParams:
+        return cls(
+            algorithm=KDF_BUNDLE_WRAP,
+            time_cost=1,
+            memory_kib=8,
+            parallelism=1,
+            salt=b"\x00" * KDF_SALT_SIZE,
+        )
+
+    @property
+    def wraps_with_bundle_key(self) -> bool:
+        return self.algorithm == KDF_BUNDLE_WRAP
+
     def to_bytes(self) -> bytes:
+        magic = _BUNDLE_WRAP_MAGIC if self.wraps_with_bundle_key else _KDF_RECORD_MAGIC
         return (
-            _KDF_RECORD_MAGIC
+            magic
             + bytes([ARGON2_VERSION, self.hash_len, len(self.salt)])
             + self.time_cost.to_bytes(4, "little")
             + self.memory_kib.to_bytes(4, "little")
@@ -100,7 +117,14 @@ class KdfParams:
 
     @classmethod
     def from_bytes(cls, payload: bytes) -> KdfParams:
-        if len(payload) < 16 + KDF_SALT_SIZE or payload[:4] != _KDF_RECORD_MAGIC:
+        if len(payload) < 16 + KDF_SALT_SIZE:
+            raise CryptoError("KDF record is invalid.", code="invalid_kdf_record")
+        magic = payload[:4]
+        if magic == _BUNDLE_WRAP_MAGIC:
+            algorithm = KDF_BUNDLE_WRAP
+        elif magic == _KDF_RECORD_MAGIC:
+            algorithm = KDF_ALGORITHM
+        else:
             raise CryptoError("KDF record is invalid.", code="invalid_kdf_record")
         version, hash_len, salt_len = payload[4], payload[5], payload[6]
         if version != ARGON2_VERSION or salt_len != KDF_SALT_SIZE:
@@ -112,7 +136,7 @@ class KdfParams:
         if len(payload) != 19 + salt_len:
             raise CryptoError("KDF record is truncated or has trailing data.", code="invalid_kdf_record")
         return cls(
-            algorithm=KDF_ALGORITHM,
+            algorithm=algorithm,
             time_cost=time_cost,
             memory_kib=memory_kib,
             parallelism=parallelism,
@@ -122,6 +146,8 @@ class KdfParams:
 
 
 def derive_key(password: str, params: KdfParams) -> bytes:
+    if params.wraps_with_bundle_key:
+        raise CryptoError("This key is wrapped by the bundle key, not a password.", code="unsupported_kdf")
     secret = encode_password(password)
     try:
         return hash_secret_raw(

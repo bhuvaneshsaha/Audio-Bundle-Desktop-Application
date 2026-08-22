@@ -40,7 +40,8 @@ class BundleGeneratorDialog(QDialog):
     def _build(self) -> None:
         layout = QVBoxLayout(self)
         intro = QLabel(
-            "Block passwords are taken from each block’s editor. "
+            "Custom-password blocks use the password from each block editor. "
+            "Windows and no-password blocks do not need a block password. "
             "The main password is used only for this bundle and is not saved in the project."
         )
         intro.setWordWrap(True)
@@ -64,13 +65,9 @@ class BundleGeneratorDialog(QDialog):
         self._main_confirm = PasswordField("Confirm main password")
         layout.addWidget(self._main_confirm)
 
-        missing = [
-            block.name
-            for block in self._workspace.project.blocks
-            if not self._workspace.block_password(block.id)
-        ]
+        missing = self._workspace.missing_password_block_names()
         if missing:
-            warning = QLabel("Missing block passwords: " + ", ".join(missing))
+            warning = QLabel("Missing custom block passwords: " + ", ".join(missing))
             warning.setWordWrap(True)
             layout.addWidget(warning)
 
@@ -105,16 +102,12 @@ class BundleGeneratorDialog(QDialog):
             QMessageBox.warning(self, "Generate Bundle", "Enter a main password.")
             return
         block_passwords = self._workspace.session_block_passwords()
-        missing = [
-            block.name
-            for block in self._workspace.project.blocks
-            if not block_passwords.get(block.id)
-        ]
+        missing = self._workspace.missing_password_block_names()
         if missing:
             QMessageBox.warning(
                 self,
                 "Generate Bundle",
-                "Set a password on every block in the block editor first.",
+                "Set a password on every custom-password block in the block editor first.",
             )
             return
         output = Path(self._output.text().strip())

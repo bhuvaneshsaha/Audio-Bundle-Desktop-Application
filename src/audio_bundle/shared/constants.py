@@ -27,6 +27,7 @@ GCM_TAG_SIZE = 16
 KDF_SALT_SIZE = 16
 KDF_HASH_LEN = 32
 KDF_ALGORITHM = "argon2id"
+KDF_BUNDLE_WRAP = "bundle-key"
 
 # Production Argon2id. Run off the UI thread; do not use these values in unit tests.
 KDF_TIME_COST = 3

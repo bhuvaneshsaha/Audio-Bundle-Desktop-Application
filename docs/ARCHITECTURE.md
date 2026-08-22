@@ -47,7 +47,7 @@ Order is an explicit contiguous index (`0..n-1`). Nothing sorts by filename.
 
 ### `BundleManifest` (outer)
 
-What the client may read after the **main** password: title, bundle id, format version, and `BundleBlockSummary` (id, name, order). **No file list.**
+What the client may read after the **main** password: title, policies, and `BundleBlockSummary` (id, name, order, auth method). **No file list.**
 
 ### `BundleBlockContents` (inner)
 
@@ -88,11 +88,11 @@ Implemented in `audio_bundle.core.crypto`, independent of Qt:
 
 ## Admin UI (Milestone 4)
 
-`audio_bundle.admin` is a PySide6 app. `ProjectWorkspace` copies imported files into `blocks/<block-id>/`, saves `project.json`, and calls `write_bundle` from a worker thread. Passwords are collected only in the generate dialog.
+`audio_bundle.admin` is a PySide6 app. `ProjectWorkspace` copies imported files into `blocks/<block-id>/`, saves `project.json`, and calls `write_bundle` from a worker thread. Each block has an unlock method (custom password, Windows authentication, or none). Client policies (one block at a time, sequential open) are project settings. Passwords are session-only.
 
 ## Client UI (Milestone 5)
 
-`audio_bundle.client` opens a bundle on a worker thread, lists locked blocks, unlocks with a block password, and decrypts selected files into a process-private temp directory (`TemporaryContentStore`) for Qt Multimedia / Qt PDF. `ClientSession` owns cleanup.
+`audio_bundle.client` requires a Windows sign-in (username/password; Hello planned for the current user) before opening a bundle. It then opens the bundle on a worker thread, lists blocks, unlocks according to each block’s method, and decrypts selected files into a process-private temp directory. Keyboard shortcuts are listed with F1.
 
 ## Client playback (Milestones 6–7)
 

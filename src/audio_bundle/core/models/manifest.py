@@ -4,6 +4,11 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
+from audio_bundle.core.models.auth_method import (
+    BlockAuthMethod,
+    parse_block_auth_method,
+    parse_windows_principals,
+)
 from audio_bundle.core.models.media_type import MediaType
 from audio_bundle.core.validation.fields import parse_datetime, require_non_empty_name
 from audio_bundle.shared.constants import BUNDLE_FORMAT_VERSION
@@ -90,14 +95,22 @@ class BundleBlockSummary:
     name: str
     order: int = 0
     id: str = field(default_factory=new_id)
+    auth_method: BlockAuthMethod = BlockAuthMethod.PASSWORD
+    windows_principals: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         self.name = require_non_empty_name(self.name, field="Block name")
         if not isinstance(self.order, int) or self.order < 0:
             raise ValidationError("Block order must be a non-negative integer.", code="invalid_order")
+        if isinstance(self.auth_method, str):
+            self.auth_method = parse_block_auth_method(self.auth_method)
+        self.windows_principals = parse_windows_principals(self.windows_principals)
 
     def to_dict(self) -> dict[str, Any]:
-        return {"id": self.id, "name": self.name, "order": self.order}
+        payload = {"id": self.id, "name": self.name, "order": self.order, "auth_method": str(self.auth_method)}
+        if self.auth_method is BlockAuthMethod.WINDOWS:
+            payload["windows_principals"] = list(self.windows_principals)
+        return payload
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> BundleBlockSummary:
@@ -107,6 +120,8 @@ class BundleBlockSummary:
             id=str(payload["id"]) if "id" in payload else new_id(),
             name=payload["name"],
             order=int(payload.get("order", 0)),
+            auth_method=parse_block_auth_method(payload.get("auth_method")),
+            windows_principals=parse_windows_principals(payload.get("windows_principals")),
         )
 
 
@@ -177,6 +192,8 @@ class BundleManifest:
     created_at: datetime = field(default_factory=utc_now)
     blocks: list[BundleBlockSummary] = field(default_factory=list)
     autoplay_on_open: bool = False
+    single_active_block: bool = False
+    sequential_unlock: bool = False
 
     def __post_init__(self) -> None:
         self.title = require_non_empty_name(self.title, field="Bundle title")
@@ -198,6 +215,8 @@ class BundleManifest:
             "title": self.title,
             "created_at": isoformat_utc(self.created_at),
             "autoplay_on_open": self.autoplay_on_open,
+            "single_active_block": self.single_active_block,
+            "sequential_unlock": self.sequential_unlock,
             "blocks": [block.to_dict() for block in self.blocks],
         }
 
@@ -225,6 +244,8 @@ class BundleManifest:
             ),
             blocks=blocks,
             autoplay_on_open=bool(payload.get("autoplay_on_open", False)),
+            single_active_block=bool(payload.get("single_active_block", False)),
+            sequential_unlock=bool(payload.get("sequential_unlock", False)),
         )
 
     @classmethod
@@ -236,8 +257,16 @@ class BundleManifest:
         return cls(
             title=project.name,
             autoplay_on_open=bool(getattr(project, "autoplay_on_open", False)),
+            single_active_block=bool(getattr(project, "single_active_block", False)),
+            sequential_unlock=bool(getattr(project, "sequential_unlock", False)),
             blocks=[
-                BundleBlockSummary(id=block.id, name=block.name, order=block.order)
+                BundleBlockSummary(
+                    id=block.id,
+                    name=block.name,
+                    order=block.order,
+                    auth_method=block.auth_method,
+                    windows_principals=list(block.windows_principals),
+                )
                 for block in project.blocks
             ],
         )

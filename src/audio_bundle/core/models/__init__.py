@@ -1,3 +1,4 @@
+from audio_bundle.core.models.auth_method import BlockAuthMethod
 from audio_bundle.core.models.block import Block
 from audio_bundle.core.models.manifest import (
     BundleBlockContents,
@@ -11,6 +12,7 @@ from audio_bundle.core.models.project import Project
 
 __all__ = [
     "Block",
+    "BlockAuthMethod",
     "BundleBlockContents",
     "BundleBlockSummary",
     "BundleFileEntry",

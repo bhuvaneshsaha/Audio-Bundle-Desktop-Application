@@ -94,6 +94,32 @@ class ProjectWorkspace:
         self.project.touch()
         self.dirty = True
 
+    def set_single_active_block(self, enabled: bool) -> None:
+        self.project.single_active_block = bool(enabled)
+        self.project.touch()
+        self.dirty = True
+
+    def set_sequential_unlock(self, enabled: bool) -> None:
+        self.project.sequential_unlock = bool(enabled)
+        self.project.touch()
+        self.dirty = True
+
+    def set_block_auth(
+        self,
+        block_id: str,
+        auth_method: object,
+        *,
+        windows_principals: list[str] | None = None,
+    ) -> None:
+        from audio_bundle.core.models.auth_method import parse_block_auth_method, parse_windows_principals
+
+        block = self.project.get_block(block_id)
+        block.auth_method = parse_block_auth_method(auth_method)
+        if windows_principals is not None:
+            block.windows_principals = parse_windows_principals(windows_principals)
+        self.project.touch()
+        self.dirty = True
+
     def next_block_name(self) -> str:
         used: set[int] = set()
         for block in self.project.blocks:
@@ -123,6 +149,15 @@ class ProjectWorkspace:
 
     def session_block_passwords(self) -> dict[str, str]:
         return dict(self._block_passwords)
+
+    def missing_password_block_names(self) -> list[str]:
+        from audio_bundle.core.models.auth_method import BlockAuthMethod
+
+        return [
+            block.name
+            for block in self.project.blocks
+            if block.auth_method is BlockAuthMethod.PASSWORD and not self.block_password(block.id)
+        ]
 
     def rename_block(self, block_id: str, name: str) -> Block:
         block = self.project.get_block(block_id)

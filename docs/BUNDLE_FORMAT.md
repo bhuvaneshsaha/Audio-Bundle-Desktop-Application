@@ -33,8 +33,8 @@ Unknown chunk types with the “critical” flag set must fail the read. Version
 | `KDFP` | no | Argon2id parameters + salt for the **main** password |
 | `WKEY` | AEAD | Bundle key wrapped with the main-password KEK |
 | `EMAN` | AEAD | Outer `BundleManifest` JSON (UTF-8, compact, sorted keys) |
-| `BKDF` | no | Argon2id parameters + salt for one block password |
-| `BWKY` | AEAD | Block key wrapped with that block’s KEK |
+| `BKDF` | no | Argon2id parameters + salt for a **custom-password** block, or `BNDL` record when the block key is wrapped by the bundle key |
+| `BWKY` | AEAD | Block key wrapped with the block KEK **or** the bundle key |
 | `BMAN` | AEAD | Inner `BundleBlockContents` JSON |
 | `BLOB` | AEAD | One media file (`nonce || ciphertext || tag`) |
 | `FEND` | no | End marker before footer |
@@ -75,8 +75,10 @@ Outer manifest (`EMAN`) — **no filenames, no blob ids**:
   "title": "Course Name",
   "created_at": "2026-01-15T12:00:00+00:00",
   "autoplay_on_open": false,
+  "single_active_block": true,
+  "sequential_unlock": true,
   "blocks": [
-    { "id": "uuid", "name": "Introduction", "order": 0 }
+    { "id": "uuid", "name": "Introduction", "order": 0, "auth_method": "password" }
   ]
 }
 ```
