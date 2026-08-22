@@ -4,6 +4,11 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
+from audio_bundle.core.models.auth_method import (
+    BlockAuthMethod,
+    parse_block_auth_method,
+    parse_windows_principals,
+)
 from audio_bundle.core.models.block import Block
 from audio_bundle.core.validation.fields import parse_datetime, require_non_empty_name
 from audio_bundle.core.validation.project import validate_project_graph
@@ -30,6 +35,8 @@ class Project:
     autoplay_on_open: bool = False
     single_active_block: bool = True
     sequential_unlock: bool = True
+    block_auth_method: BlockAuthMethod = BlockAuthMethod.PASSWORD
+    windows_principals: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         self.name = require_non_empty_name(self.name, field="Project name")
@@ -38,7 +45,13 @@ class Project:
                 f"Unsupported project schema version {self.schema_version}.",
                 code="unsupported_schema_version",
             )
+        if isinstance(self.block_auth_method, str):
+            self.block_auth_method = parse_block_auth_method(self.block_auth_method)
+        self.windows_principals = parse_windows_principals(self.windows_principals)
         _renumber(self.blocks)
+        for block in self.blocks:
+            block.auth_method = self.block_auth_method
+            block.windows_principals = list(self.windows_principals)
         validate_project_graph(self)
 
     def touch(self) -> None:
@@ -51,6 +64,8 @@ class Project:
             if index < 0 or index > len(self.blocks):
                 raise ValidationError("Invalid insert index.", code="invalid_index")
             self.blocks.insert(index, block)
+        block.auth_method = self.block_auth_method
+        block.windows_principals = list(self.windows_principals)
         _renumber(self.blocks)
         validate_project_graph(self)
         self.touch()
@@ -91,6 +106,8 @@ class Project:
             "autoplay_on_open": self.autoplay_on_open,
             "single_active_block": self.single_active_block,
             "sequential_unlock": self.sequential_unlock,
+            "block_auth_method": str(self.block_auth_method),
+            "windows_principals": list(self.windows_principals),
             "blocks": [block.to_dict() for block in self.blocks],
         }
 
@@ -105,6 +122,12 @@ class Project:
             raise ValidationError("Project blocks must be a list.", code="invalid_blocks")
         blocks = [Block.from_dict(raw) for raw in raw_blocks]
         blocks.sort(key=lambda block: block.order)
+        auth_method = payload.get("block_auth_method")
+        if auth_method is None and blocks:
+            auth_method = blocks[0].auth_method
+        principals = payload.get("windows_principals")
+        if principals is None and blocks:
+            principals = blocks[0].windows_principals
         created_at = payload.get("created_at")
         updated_at = payload.get("updated_at")
         return cls(
@@ -117,4 +140,6 @@ class Project:
             autoplay_on_open=bool(payload.get("autoplay_on_open", False)),
             single_active_block=bool(payload.get("single_active_block", True)),
             sequential_unlock=bool(payload.get("sequential_unlock", True)),
+            block_auth_method=parse_block_auth_method(auth_method),
+            windows_principals=parse_windows_principals(principals),
         )

@@ -88,11 +88,11 @@ Implemented in `audio_bundle.core.crypto`, independent of Qt:
 
 ## Admin UI (Milestone 4)
 
-`audio_bundle.admin` is a PySide6 app. `ProjectWorkspace` copies imported files into `blocks/<block-id>/`, saves `project.json`, and calls `write_bundle` from a worker thread. Each block has an unlock method (custom password, Windows authentication, or none). Client policies (one block at a time, sequential open) are project settings. Passwords are session-only.
+`audio_bundle.admin` is a PySide6 app. `ProjectWorkspace` copies imported files into `blocks/<block-id>/`, saves `project.json`, and calls `write_bundle` from a worker thread. Unlock method (custom password, Windows authentication, or none) is a **project** setting applied to every block. Client policies (one block at a time, sequential open) are project settings. Passwords are session-only.
 
 ## Client UI (Milestone 5)
 
-`audio_bundle.client` requires a Windows sign-in (username/password; Hello planned for the current user) before opening a bundle. It then opens the bundle on a worker thread, lists blocks, unlocks according to each block’s method, and decrypts selected files into a process-private temp directory. Keyboard shortcuts are listed with F1.
+`audio_bundle.client` requires a Windows sign-in (username/password or Hello/PIN/fingerprint for the current user) before opening a bundle. It then opens the bundle on a worker thread, lists blocks, unlocks using the course-wide method, and decrypts selected files into a process-private temp directory. Keyboard shortcuts are listed with F1.
 
 ## Client playback (Milestones 6–7)
 

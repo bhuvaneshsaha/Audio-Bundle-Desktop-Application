@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from PySide6.QtGui import QKeySequence
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -26,7 +25,8 @@ class WindowsSignInForm(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         heading = QLabel(title)
         heading.setWordWrap(True)
-        layout.addWidget(heading)
+        if title:
+            layout.addWidget(heading)
         form = QFormLayout()
         self.username = QLineEdit()
         self.username.setAccessibleName("Windows user name")
@@ -46,16 +46,18 @@ class WindowsSignInForm(QWidget):
 
 
 class WindowsSignInDialog(QDialog):
-    def __init__(self, block_name: str, parent=None) -> None:
+    def __init__(self, block_name: str, parent=None, *, authenticator=None) -> None:
         super().__init__(parent)
         self.setWindowTitle(block_name)
         self.setModal(True)
         self.setMinimumWidth(420)
-        self._identity_ok = False
+        self._authenticator = authenticator or default_authenticator()
+        self.hello_identity = None
         layout = QVBoxLayout(self)
         self._form = WindowsSignInForm(
-            title="Sign in with a Windows account to unlock this block. "
-            "This is required even if you are already logged on to Windows."
+            title="Confirm this Windows account to unlock the block. "
+            "Use PIN or fingerprint for the account already logged on to this PC, "
+            "or type a user name and password if another person is using the machine."
         )
         layout.addWidget(self._form)
         self._form.hello.clicked.connect(self._try_hello)
@@ -64,7 +66,6 @@ class WindowsSignInDialog(QDialog):
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
         buttons.button(QDialogButtonBox.StandardButton.Ok).setText("Unlock")
-        buttons.button(QDialogButtonBox.StandardButton.Ok).setShortcut(QKeySequence.StandardKey.InsertParagraphSeparator)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
@@ -76,6 +77,8 @@ class WindowsSignInDialog(QDialog):
         from PySide6.QtWidgets import QMessageBox
 
         try:
-            default_authenticator().verify_hello()
+            self.hello_identity = self._authenticator.verify_hello()
         except AuthenticationError as exc:
             QMessageBox.information(self, "Windows Hello", user_message(exc))
+            return
+        self.accept()

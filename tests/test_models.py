@@ -181,6 +181,7 @@ def test_outer_manifest_hides_file_list() -> None:
     assert "hidden.mp3" not in json.dumps(serialized)
     assert serialized["blocks"][0]["name"] == "Lesson 1"
     assert serialized["blocks"][0]["auth_method"] == "password"
+    assert serialized["block_auth_method"] == "password"
     assert serialized["single_active_block"] is True
     assert serialized["sequential_unlock"] is True
     assert "files" not in serialized["blocks"][0]

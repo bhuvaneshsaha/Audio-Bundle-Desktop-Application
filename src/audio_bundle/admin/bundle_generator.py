@@ -40,7 +40,7 @@ class BundleGeneratorDialog(QDialog):
     def _build(self) -> None:
         layout = QVBoxLayout(self)
         intro = QLabel(
-            "Custom-password blocks use the password from each block editor. "
+            "Each custom-password block uses the password from its block editor. "
             "Windows and no-password blocks do not need a block password. "
             "The main password is used only for this bundle and is not saved in the project."
         )
