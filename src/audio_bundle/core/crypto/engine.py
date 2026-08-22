@@ -57,6 +57,10 @@ class CryptoEngine:
         wrapped = wrap_key(kek, key, aad=aad)
         return SealedKey(params=params, wrapped=wrapped)
 
+    def wrap_with_key(self, kek: bytes, key: bytes, *, aad: bytes) -> SealedKey:
+        wrapped = wrap_key(kek, key, aad=aad)
+        return SealedKey(params=KdfParams.bundle_wrap(), wrapped=wrapped)
+
     def open_key(
         self,
         password: str,
@@ -65,7 +69,21 @@ class CryptoEngine:
         aad: bytes,
         failure: str = "wrong_password",
     ) -> bytes:
+        if sealed.params.wraps_with_bundle_key:
+            raise CryptoError("This key must be opened with the bundle key.", code="unsupported_kdf")
         kek = derive_key(password, sealed.params)
+        return unwrap_key(kek, sealed.wrapped, aad=aad, failure=failure)
+
+    def open_wrapped_with_key(
+        self,
+        kek: bytes,
+        sealed: SealedKey,
+        *,
+        aad: bytes,
+        failure: str = "tampered",
+    ) -> bytes:
+        if not sealed.params.wraps_with_bundle_key:
+            raise CryptoError("This key is password-wrapped.", code="unsupported_kdf")
         return unwrap_key(kek, sealed.wrapped, aad=aad, failure=failure)
 
     def rewrap_key(

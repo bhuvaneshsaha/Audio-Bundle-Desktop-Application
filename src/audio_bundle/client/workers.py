@@ -33,15 +33,35 @@ class UnlockBlockWorker(QObject):
     finished = Signal(object)
     failed = Signal(str)
 
-    def __init__(self, session: ClientSession, block_id: str, password: str) -> None:
+    def __init__(
+        self,
+        session: ClientSession,
+        block_id: str,
+        password: str = "",
+        *,
+        windows_username: str = "",
+        windows_password: str = "",
+        authenticator: object | None = None,
+    ) -> None:
         super().__init__()
         self._session = session
         self._block_id = block_id
         self._password = password
+        self._windows_username = windows_username
+        self._windows_password = windows_password
+        self._authenticator = authenticator
 
     def run(self) -> None:
         try:
-            self.finished.emit(self._session.unlock_block(self._block_id, self._password))
+            self.finished.emit(
+                self._session.unlock_block(
+                    self._block_id,
+                    self._password,
+                    windows_username=self._windows_username,
+                    windows_password=self._windows_password,
+                    authenticator=self._authenticator,
+                )
+            )
         except Exception as exc:
             logger.exception("Unlocking block failed")
             self.failed.emit(user_message(exc))

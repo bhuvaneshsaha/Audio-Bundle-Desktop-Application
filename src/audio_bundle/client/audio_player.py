@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QUrl, Signal
+from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
 from PySide6.QtWidgets import (
     QComboBox,
@@ -79,6 +80,13 @@ class AudioPlayer(QWidget):
         self._next.clicked.connect(self._play_next)
         self._play.clicked.connect(self._toggle_play)
         self._stop.clicked.connect(self.stop)
+        self._play.setAccessibleName("Play or pause")
+        self._stop.setAccessibleName("Stop")
+        self._back.setAccessibleName("Jump back 10 seconds")
+        self._forward.setAccessibleName("Jump forward 10 seconds")
+        self._prev.setAccessibleName("Previous audio file")
+        self._next.setAccessibleName("Next audio file")
+        self._bind_shortcuts()
         for button in (self._back, self._prev, self._play, self._next, self._forward, self._stop):
             button.setMinimumHeight(36)
             transport.addWidget(button)
@@ -109,6 +117,21 @@ class AudioPlayer(QWidget):
         self._error.setWordWrap(True)
         layout.addWidget(self._error)
         layout.addStretch(1)
+
+    def _bind_shortcuts(self) -> None:
+        def bind(keys: str, slot) -> None:
+            shortcut = QShortcut(QKeySequence(keys), self)
+            shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+            shortcut.activated.connect(slot)
+
+        bind("Ctrl+P", self._toggle_play)
+        bind("Ctrl+S", self.stop)
+        bind("Left", lambda: self._nudge(-SEEK_STEP_MS))
+        bind("Right", lambda: self._nudge(SEEK_STEP_MS))
+        bind("Ctrl+Left", self._play_previous)
+        bind("Ctrl+Right", self._play_next)
+        bind("Ctrl+Up", lambda: self._volume.setValue(min(100, self._volume.value() + 5)))
+        bind("Ctrl+Down", lambda: self._volume.setValue(max(0, self._volume.value() - 5)))
 
     def set_files(self, files: list[BundleFileEntry]) -> None:
         self._files = list(files)

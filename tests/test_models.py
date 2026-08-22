@@ -153,7 +153,7 @@ def test_project_json_never_contains_password_fields(tmp_path: Path) -> None:
     path = tmp_path / "project.json"
     save_project(project, path)
     text = path.read_text(encoding="utf-8").lower()
-    assert "password" not in text
+    assert '"password":' not in text
     payload = json.loads(path.read_text(encoding="utf-8"))
     assert_no_secret_fields(payload)
 
@@ -180,10 +180,14 @@ def test_outer_manifest_hides_file_list() -> None:
     assert serialized["autoplay_on_open"] is True
     assert "hidden.mp3" not in json.dumps(serialized)
     assert serialized["blocks"][0]["name"] == "Lesson 1"
+    assert serialized["blocks"][0]["auth_method"] == "password"
+    assert serialized["single_active_block"] is True
+    assert serialized["sequential_unlock"] is True
     assert "files" not in serialized["blocks"][0]
     restored = BundleManifest.from_dict(serialized)
     assert restored.title == "Course"
     assert restored.autoplay_on_open is True
+    assert restored.sequential_unlock is True
     assert restored.blocks[0].id == block.id
 
 

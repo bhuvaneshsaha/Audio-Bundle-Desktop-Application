@@ -22,6 +22,7 @@ from audio_bundle.core.crypto.aad import bind_aad
 from audio_bundle.core.crypto.aead import encrypt
 from audio_bundle.core.crypto.engine import CryptoEngine
 from audio_bundle.core.crypto.hashing import sha256_hex
+from audio_bundle.core.models.auth_method import BlockAuthMethod
 from audio_bundle.core.models.manifest import BundleBlockContents, BundleFileEntry, BundleManifest
 from audio_bundle.core.models.project import Project
 from audio_bundle.shared.constants import (
@@ -63,10 +64,14 @@ def _load_sources(project: Project, source_root: Path) -> dict[str, bytes]:
 
 
 def _require_block_passwords(project: Project, block_passwords: dict[str, str]) -> None:
-    missing = [block.name for block in project.blocks if block.id not in block_passwords]
+    missing = [
+        block.name
+        for block in project.blocks
+        if block.auth_method is BlockAuthMethod.PASSWORD and not block_passwords.get(block.id)
+    ]
     if missing:
         raise ValidationError(
-            "A password is required for every block before generating a bundle.",
+            "A password is required for every custom-password block before generating a bundle.",
             code="missing_block_password",
         )
     extra = set(block_passwords) - {block.id for block in project.blocks}
@@ -111,11 +116,11 @@ def write_bundle(
     for block in project.blocks:
         block_key = crypto.new_content_key()
         block_context = block.id.encode("utf-8")
-        sealed_block = crypto.seal_key(
-            block_passwords[block.id],
-            block_key,
-            aad=bind_aad(AAD_CHUNK_BLOCK_WRAP, context=block_context),
-        )
+        wrap_aad = bind_aad(AAD_CHUNK_BLOCK_WRAP, context=block_context)
+        if block.auth_method is BlockAuthMethod.PASSWORD:
+            sealed_block = crypto.seal_key(block_passwords[block.id], block_key, aad=wrap_aad)
+        else:
+            sealed_block = crypto.wrap_with_key(bundle_key, block_key, aad=wrap_aad)
         files: list[BundleFileEntry] = []
         blob_chunks: list[bytes] = []
         for item in block.items:

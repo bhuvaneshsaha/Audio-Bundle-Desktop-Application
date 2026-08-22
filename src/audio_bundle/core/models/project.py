@@ -28,6 +28,8 @@ class Project:
     updated_at: datetime = field(default_factory=utc_now)
     blocks: list[Block] = field(default_factory=list)
     autoplay_on_open: bool = False
+    single_active_block: bool = True
+    sequential_unlock: bool = True
 
     def __post_init__(self) -> None:
         self.name = require_non_empty_name(self.name, field="Project name")
@@ -87,6 +89,8 @@ class Project:
             "created_at": isoformat_utc(self.created_at),
             "updated_at": isoformat_utc(self.updated_at),
             "autoplay_on_open": self.autoplay_on_open,
+            "single_active_block": self.single_active_block,
+            "sequential_unlock": self.sequential_unlock,
             "blocks": [block.to_dict() for block in self.blocks],
         }
 
@@ -111,4 +115,6 @@ class Project:
             updated_at=parse_datetime(updated_at, field="updated_at") if updated_at else utc_now(),
             blocks=blocks,
             autoplay_on_open=bool(payload.get("autoplay_on_open", False)),
+            single_active_block=bool(payload.get("single_active_block", True)),
+            sequential_unlock=bool(payload.get("sequential_unlock", True)),
         )

@@ -51,6 +51,14 @@ class ProjectWindow(QWidget):
         self._autoplay.setChecked(self._workspace.project.autoplay_on_open)
         self._autoplay.toggled.connect(self._set_autoplay)
         layout.addWidget(self._autoplay)
+        self._single = QCheckBox("Allow only one unlocked block at a time (opening another block locks the previous one)")
+        self._single.setChecked(self._workspace.project.single_active_block)
+        self._single.toggled.connect(self._set_single)
+        layout.addWidget(self._single)
+        self._sequential = QCheckBox("Blocks must be opened in order (block 2 only after block 1 has been opened)")
+        self._sequential.setChecked(self._workspace.project.sequential_unlock)
+        self._sequential.toggled.connect(self._set_sequential)
+        layout.addWidget(self._sequential)
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
         left = QWidget()
@@ -121,6 +129,14 @@ class ProjectWindow(QWidget):
 
     def _set_autoplay(self, enabled: bool) -> None:
         self._workspace.set_autoplay_on_open(enabled)
+        self._update_title()
+
+    def _set_single(self, enabled: bool) -> None:
+        self._workspace.set_single_active_block(enabled)
+        self._update_title()
+
+    def _set_sequential(self, enabled: bool) -> None:
+        self._workspace.set_sequential_unlock(enabled)
         self._update_title()
 
     def _on_block_selected(self, row: int) -> None:
@@ -211,11 +227,7 @@ class ProjectWindow(QWidget):
         if not self._workspace.project.blocks:
             QMessageBox.information(self, "Generate Bundle", "Add at least one block before generating a bundle.")
             return
-        missing = [
-            block.name
-            for block in self._workspace.project.blocks
-            if not self._workspace.block_password(block.id)
-        ]
+        missing = self._workspace.missing_password_block_names()
         if missing:
             QMessageBox.warning(
                 self,

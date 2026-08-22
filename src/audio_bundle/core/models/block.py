@@ -3,6 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from audio_bundle.core.models.auth_method import (
+    BlockAuthMethod,
+    parse_block_auth_method,
+    parse_windows_principals,
+)
 from audio_bundle.core.models.media_item import MediaItem
 from audio_bundle.core.validation.fields import require_non_empty_name
 from audio_bundle.core.validation.project import validate_block_graph
@@ -23,6 +28,8 @@ class Block:
     order: int = 0
     id: str = field(default_factory=new_id)
     items: list[MediaItem] = field(default_factory=list)
+    auth_method: BlockAuthMethod = BlockAuthMethod.PASSWORD
+    windows_principals: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         self.name = require_non_empty_name(self.name, field="Block name")
@@ -30,6 +37,9 @@ class Block:
             raise ValidationError("Block order must be a non-negative integer.", code="invalid_order")
         if not isinstance(self.items, list):
             raise ValidationError("Block files must be a list.", code="invalid_items")
+        if isinstance(self.auth_method, str):
+            self.auth_method = parse_block_auth_method(self.auth_method)
+        self.windows_principals = parse_windows_principals(self.windows_principals)
         _renumber(self.items)
         validate_block_graph(self)
 
@@ -76,6 +86,8 @@ class Block:
             "id": self.id,
             "name": self.name,
             "order": self.order,
+            "auth_method": str(self.auth_method),
+            "windows_principals": list(self.windows_principals),
             "items": [item.to_dict() for item in self.items],
         }
 
@@ -95,4 +107,6 @@ class Block:
             name=payload["name"],
             order=int(payload.get("order", 0)),
             items=items,
+            auth_method=parse_block_auth_method(payload.get("auth_method")),
+            windows_principals=parse_windows_principals(payload.get("windows_principals")),
         )

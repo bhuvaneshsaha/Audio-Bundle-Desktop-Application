@@ -14,8 +14,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from audio_bundle.client.windows_login import WindowsSignInDialog
 from audio_bundle.client.workers import UnlockBlockWorker
 from audio_bundle.core.bundle.session import ClientSession
+from audio_bundle.core.models.auth_method import BlockAuthMethod
+from audio_bundle.shared.messages import user_message
 
 
 class UnlockDialog(QDialog):
@@ -49,6 +52,7 @@ class BundleView(QWidget):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self._session: ClientSession | None = None
+        self._authenticator = None
         self._thread: QThread | None = None
         self._worker: UnlockBlockWorker | None = None
         self._pending_block: str | None = None
@@ -57,19 +61,23 @@ class BundleView(QWidget):
         self._title = QLabel("Course")
         self._title.setStyleSheet("font-size: 24px; font-weight: 600;")
         layout.addWidget(self._title)
-        hint = QLabel("Locked blocks need a password. Unlocked blocks open the content viewer.")
-        hint.setWordWrap(True)
-        layout.addWidget(hint)
+        self._hint = QLabel(
+            "Select a block and press Enter to unlock it. "
+            "Unlock method is set by the Admin (Windows, custom password, or none)."
+        )
+        self._hint.setWordWrap(True)
+        layout.addWidget(self._hint)
         self._blocks = QListWidget()
         self._blocks.setAccessibleName("Blocks")
         self._blocks.itemActivated.connect(self._on_activated)
-        self._blocks.itemClicked.connect(self._on_activated)
         layout.addWidget(self._blocks, 1)
 
-    def set_session(self, session: ClientSession) -> None:
+    def set_session(self, session: ClientSession, *, authenticator=None) -> None:
         self._session = session
+        self._authenticator = authenticator
         self._title.setText(session.title)
         self.refresh()
+        self._blocks.setFocus()
 
     def refresh(self) -> None:
         if self._session is None:
@@ -79,12 +87,20 @@ class BundleView(QWidget):
             current = str(self._blocks.currentItem().data(Qt.ItemDataRole.UserRole))
         self._blocks.clear()
         for block in self._session.opened.manifest.blocks:
-            lock = "🔓" if self._session.is_unlocked(block.id) else "🔒"
-            row = QListWidgetItem(f"{lock}  {block.name}")
+            lock = "Unlocked" if self._session.is_unlocked(block.id) else "Locked"
+            method = {
+                BlockAuthMethod.PASSWORD: "password",
+                BlockAuthMethod.WINDOWS: "Windows",
+                BlockAuthMethod.NONE: "no password",
+            }[block.auth_method]
+            row = QListWidgetItem(f"{lock} — {block.name} ({method})")
             row.setData(Qt.ItemDataRole.UserRole, block.id)
+            row.setToolTip(block.name)
             self._blocks.addItem(row)
             if current == block.id:
                 self._blocks.setCurrentItem(row)
+        if self._blocks.currentRow() < 0 and self._blocks.count():
+            self._blocks.setCurrentRow(0)
 
     def _on_activated(self, item: QListWidgetItem) -> None:
         if self._session is None or item is None:
@@ -93,14 +109,28 @@ class BundleView(QWidget):
         if self._session.is_unlocked(block_id):
             self.openBlock.emit(block_id)
             return
-        name = next(b.name for b in self._session.opened.manifest.blocks if b.id == block_id)
-        dialog = UnlockDialog(name, self)
-        if dialog.exec() != QDialog.DialogCode.Accepted:
+        try:
+            self._session.ensure_can_unlock(block_id)
+        except Exception as exc:
+            QMessageBox.information(self, "Open block", user_message(exc))
             return
-        password = dialog.password()
-        if not password:
-            QMessageBox.warning(self, "Unlock", "Enter the block password.")
-            return
+        summary = self._session.block_summary(block_id)
+        password = ""
+        windows_username = ""
+        windows_password = ""
+        if summary.auth_method is BlockAuthMethod.PASSWORD:
+            dialog = UnlockDialog(summary.name, self)
+            if dialog.exec() != QDialog.DialogCode.Accepted:
+                return
+            password = dialog.password()
+            if not password:
+                QMessageBox.warning(self, "Unlock", "Enter the block password.")
+                return
+        elif summary.auth_method is BlockAuthMethod.WINDOWS:
+            dialog = WindowsSignInDialog(summary.name, self)
+            if dialog.exec() != QDialog.DialogCode.Accepted:
+                return
+            windows_username, windows_password = dialog.credentials()
         self._pending_block = block_id
         self._progress = QProgressDialog("Unlocking block…", None, 0, 0, self)
         self._progress.setWindowModality(Qt.WindowModality.ApplicationModal)
@@ -108,7 +138,14 @@ class BundleView(QWidget):
         self._progress.setMinimumDuration(0)
         self._progress.show()
         self._thread = QThread(self)
-        self._worker = UnlockBlockWorker(self._session, block_id, password)
+        self._worker = UnlockBlockWorker(
+            self._session,
+            block_id,
+            password,
+            windows_username=windows_username,
+            windows_password=windows_password,
+            authenticator=self._authenticator,
+        )
         self._worker.moveToThread(self._thread)
         self._thread.started.connect(self._worker.run)
         self._worker.finished.connect(self._on_unlocked)
