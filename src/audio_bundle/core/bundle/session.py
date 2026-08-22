@@ -50,24 +50,30 @@ class ClientSession:
         *,
         windows_username: str = "",
         windows_password: str = "",
+        windows_identity: WindowsIdentity | None = None,
         authenticator: object | None = None,
     ) -> UnlockedBlock:
         if block_id in self._unlocked:
             return self._unlocked[block_id]
         summary = self.block_summary(block_id)
         self._assert_sequential(block_id)
-        if summary.auth_method is BlockAuthMethod.WINDOWS:
+        method = self.opened.manifest.block_auth_method
+        principals = self.opened.manifest.windows_principals
+        if method is BlockAuthMethod.WINDOWS:
             auth = authenticator or default_authenticator()
-            identity = auth.verify_password(windows_username, windows_password)  # type: ignore[union-attr]
+            if windows_identity is not None:
+                identity = windows_identity
+            else:
+                identity = auth.verify_password(windows_username, windows_password)  # type: ignore[union-attr]
             if not isinstance(identity, WindowsIdentity):
                 raise AuthenticationError("Windows authentication failed.", code="windows_logon_failed")
-            if not principal_allowed(identity, summary.windows_principals):
+            if not principal_allowed(identity, principals):
                 raise AuthenticationError(
                     "This Windows account is not allowed to open this block.",
                     code="windows_principal_denied",
                 )
             unlocked = self.opened.unlock_block(block_id, None)
-        elif summary.auth_method is BlockAuthMethod.NONE:
+        elif method is BlockAuthMethod.NONE:
             unlocked = self.opened.unlock_block(block_id, None)
         else:
             unlocked = self.opened.unlock_block(block_id, password)

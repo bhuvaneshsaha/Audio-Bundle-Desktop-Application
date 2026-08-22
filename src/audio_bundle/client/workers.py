@@ -41,6 +41,7 @@ class UnlockBlockWorker(QObject):
         *,
         windows_username: str = "",
         windows_password: str = "",
+        windows_identity: object | None = None,
         authenticator: object | None = None,
     ) -> None:
         super().__init__()
@@ -49,6 +50,7 @@ class UnlockBlockWorker(QObject):
         self._password = password
         self._windows_username = windows_username
         self._windows_password = windows_password
+        self._windows_identity = windows_identity
         self._authenticator = authenticator
 
     def run(self) -> None:
@@ -59,6 +61,7 @@ class UnlockBlockWorker(QObject):
                     self._password,
                     windows_username=self._windows_username,
                     windows_password=self._windows_password,
+                    windows_identity=self._windows_identity,
                     authenticator=self._authenticator,
                 )
             )

@@ -104,19 +104,15 @@ class ProjectWorkspace:
         self.project.touch()
         self.dirty = True
 
-    def set_block_auth(
-        self,
-        block_id: str,
-        auth_method: object,
-        *,
-        windows_principals: list[str] | None = None,
-    ) -> None:
+    def set_block_auth_method(self, auth_method: object, *, windows_principals: list[str] | None = None) -> None:
         from audio_bundle.core.models.auth_method import parse_block_auth_method, parse_windows_principals
 
-        block = self.project.get_block(block_id)
-        block.auth_method = parse_block_auth_method(auth_method)
+        self.project.block_auth_method = parse_block_auth_method(auth_method)
         if windows_principals is not None:
-            block.windows_principals = parse_windows_principals(windows_principals)
+            self.project.windows_principals = parse_windows_principals(windows_principals)
+        for block in self.project.blocks:
+            block.auth_method = self.project.block_auth_method
+            block.windows_principals = list(self.project.windows_principals)
         self.project.touch()
         self.dirty = True
 
@@ -156,7 +152,7 @@ class ProjectWorkspace:
         return [
             block.name
             for block in self.project.blocks
-            if block.auth_method is BlockAuthMethod.PASSWORD and not self.block_password(block.id)
+            if self.project.block_auth_method is BlockAuthMethod.PASSWORD and not self.block_password(block.id)
         ]
 
     def rename_block(self, block_id: str, name: str) -> Block:

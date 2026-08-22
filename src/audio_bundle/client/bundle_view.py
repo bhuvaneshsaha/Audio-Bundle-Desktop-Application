@@ -88,12 +88,7 @@ class BundleView(QWidget):
         self._blocks.clear()
         for block in self._session.opened.manifest.blocks:
             lock = "Unlocked" if self._session.is_unlocked(block.id) else "Locked"
-            method = {
-                BlockAuthMethod.PASSWORD: "password",
-                BlockAuthMethod.WINDOWS: "Windows",
-                BlockAuthMethod.NONE: "no password",
-            }[block.auth_method]
-            row = QListWidgetItem(f"{lock} — {block.name} ({method})")
+            row = QListWidgetItem(f"{lock} — {block.name}")
             row.setData(Qt.ItemDataRole.UserRole, block.id)
             row.setToolTip(block.name)
             self._blocks.addItem(row)
@@ -115,10 +110,12 @@ class BundleView(QWidget):
             QMessageBox.information(self, "Open block", user_message(exc))
             return
         summary = self._session.block_summary(block_id)
+        method = self._session.opened.manifest.block_auth_method
         password = ""
         windows_username = ""
         windows_password = ""
-        if summary.auth_method is BlockAuthMethod.PASSWORD:
+        windows_identity = None
+        if method is BlockAuthMethod.PASSWORD:
             dialog = UnlockDialog(summary.name, self)
             if dialog.exec() != QDialog.DialogCode.Accepted:
                 return
@@ -126,11 +123,13 @@ class BundleView(QWidget):
             if not password:
                 QMessageBox.warning(self, "Unlock", "Enter the block password.")
                 return
-        elif summary.auth_method is BlockAuthMethod.WINDOWS:
-            dialog = WindowsSignInDialog(summary.name, self)
+        elif method is BlockAuthMethod.WINDOWS:
+            dialog = WindowsSignInDialog(summary.name, self, authenticator=self._authenticator)
             if dialog.exec() != QDialog.DialogCode.Accepted:
                 return
-            windows_username, windows_password = dialog.credentials()
+            windows_identity = dialog.hello_identity
+            if windows_identity is None:
+                windows_username, windows_password = dialog.credentials()
         self._pending_block = block_id
         self._progress = QProgressDialog("Unlocking block…", None, 0, 0, self)
         self._progress.setWindowModality(Qt.WindowModality.ApplicationModal)
@@ -144,6 +143,7 @@ class BundleView(QWidget):
             password,
             windows_username=windows_username,
             windows_password=windows_password,
+            windows_identity=windows_identity,
             authenticator=self._authenticator,
         )
         self._worker.moveToThread(self._thread)

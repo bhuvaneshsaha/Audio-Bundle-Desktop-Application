@@ -26,7 +26,9 @@ BlockKey
     → encrypts inner manifest and that block’s file blobs
 ```
 
-The official Client always asks for **Windows username and password** before any bundle is opened (shared PCs). Windows Hello / PIN / fingerprint is offered when the platform supports verifying the *currently logged-on* user; shared kiosks should keep using typed credentials so a different person can sign in.
+The official Client always asks for Windows credentials before any bundle is opened (shared PCs). Username/password uses `LogonUser`. Windows Hello / PIN / fingerprint verifies the *currently logged-on* user (`UserConsentVerifier`, with the system credential dialog as fallback). Shared kiosks should keep using typed credentials so a different person can sign in.
+
+How Windows-auth blocks differ from custom-password blocks (crypto vs Client gate): [BLOCK_AUTHENTICATION_SECURITY.md](BLOCK_AUTHENTICATION_SECURITY.md).
 
 **Active Directory:** the same LogonUser path accepts `DOMAIN\user` and `user@upn`. Allow-lists may include those names or `group:DOMAIN\\Group`. Group membership checks are recorded for AD-joined machines.
 

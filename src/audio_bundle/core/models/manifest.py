@@ -194,6 +194,8 @@ class BundleManifest:
     autoplay_on_open: bool = False
     single_active_block: bool = False
     sequential_unlock: bool = False
+    block_auth_method: BlockAuthMethod = BlockAuthMethod.PASSWORD
+    windows_principals: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         self.title = require_non_empty_name(self.title, field="Bundle title")
@@ -207,6 +209,12 @@ class BundleManifest:
         ids = [block.id for block in self.blocks]
         if len(ids) != len(set(ids)):
             raise ValidationError("Duplicate block id in bundle manifest.", code="duplicate_id")
+        if isinstance(self.block_auth_method, str):
+            self.block_auth_method = parse_block_auth_method(self.block_auth_method)
+        self.windows_principals = parse_windows_principals(self.windows_principals)
+        for block in self.blocks:
+            block.auth_method = self.block_auth_method
+            block.windows_principals = list(self.windows_principals)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -217,6 +225,8 @@ class BundleManifest:
             "autoplay_on_open": self.autoplay_on_open,
             "single_active_block": self.single_active_block,
             "sequential_unlock": self.sequential_unlock,
+            "block_auth_method": str(self.block_auth_method),
+            "windows_principals": list(self.windows_principals),
             "blocks": [block.to_dict() for block in self.blocks],
         }
 
@@ -230,6 +240,12 @@ class BundleManifest:
         if not isinstance(raw_blocks, list):
             raise ValidationError("Bundle blocks must be a list.", code="invalid_blocks")
         blocks = [BundleBlockSummary.from_dict(raw) for raw in raw_blocks]
+        auth_method = payload.get("block_auth_method")
+        if auth_method is None and blocks:
+            auth_method = blocks[0].auth_method
+        principals = payload.get("windows_principals")
+        if principals is None and blocks:
+            principals = blocks[0].windows_principals
         created_at = payload.get("created_at")
         return cls(
             title=payload["title"],
@@ -246,6 +262,8 @@ class BundleManifest:
             autoplay_on_open=bool(payload.get("autoplay_on_open", False)),
             single_active_block=bool(payload.get("single_active_block", False)),
             sequential_unlock=bool(payload.get("sequential_unlock", False)),
+            block_auth_method=parse_block_auth_method(auth_method),
+            windows_principals=parse_windows_principals(principals),
         )
 
     @classmethod
@@ -254,18 +272,22 @@ class BundleManifest:
 
         if not isinstance(project, Project):
             raise ValidationError("Expected a Project model.", code="invalid_project")
+        method = getattr(project, "block_auth_method", BlockAuthMethod.PASSWORD)
+        principals = list(getattr(project, "windows_principals", []))
         return cls(
             title=project.name,
             autoplay_on_open=bool(getattr(project, "autoplay_on_open", False)),
             single_active_block=bool(getattr(project, "single_active_block", False)),
             sequential_unlock=bool(getattr(project, "sequential_unlock", False)),
+            block_auth_method=method,
+            windows_principals=principals,
             blocks=[
                 BundleBlockSummary(
                     id=block.id,
                     name=block.name,
                     order=block.order,
-                    auth_method=block.auth_method,
-                    windows_principals=list(block.windows_principals),
+                    auth_method=method,
+                    windows_principals=principals,
                 )
                 for block in project.blocks
             ],

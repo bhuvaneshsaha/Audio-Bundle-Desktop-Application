@@ -77,6 +77,8 @@ Outer manifest (`EMAN`) — **no filenames, no blob ids**:
   "autoplay_on_open": false,
   "single_active_block": true,
   "sequential_unlock": true,
+  "block_auth_method": "password",
+  "windows_principals": [],
   "blocks": [
     { "id": "uuid", "name": "Introduction", "order": 0, "auth_method": "password" }
   ]

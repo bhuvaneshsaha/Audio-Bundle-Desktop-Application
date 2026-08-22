@@ -86,8 +86,6 @@ class Block:
             "id": self.id,
             "name": self.name,
             "order": self.order,
-            "auth_method": str(self.auth_method),
-            "windows_principals": list(self.windows_principals),
             "items": [item.to_dict() for item in self.items],
         }
 
