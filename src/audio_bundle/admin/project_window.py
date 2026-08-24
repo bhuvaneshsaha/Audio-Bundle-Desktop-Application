@@ -4,11 +4,13 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QCheckBox,
+    QComboBox,
     QHBoxLayout,
     QInputDialog,
     QLabel,
     QLineEdit,
     QMessageBox,
+    QPlainTextEdit,
     QPushButton,
     QSplitter,
     QVBoxLayout,
@@ -18,6 +20,7 @@ from PySide6.QtWidgets import (
 from audio_bundle.admin.block_editor import BlockEditor
 from audio_bundle.admin.bundle_generator import BundleGeneratorDialog
 from audio_bundle.admin.file_list import ReorderList, block_item
+from audio_bundle.core.models.auth_method import BlockAuthMethod
 from audio_bundle.core.storage.workspace import ProjectWorkspace
 from audio_bundle.shared.messages import user_message
 
@@ -60,6 +63,33 @@ class ProjectWindow(QWidget):
         self._sequential.toggled.connect(self._set_sequential)
         layout.addWidget(self._sequential)
 
+        auth_row = QHBoxLayout()
+        auth_row.addWidget(QLabel("Block unlock method (all blocks)"))
+        self._auth = QComboBox()
+        self._auth.setAccessibleName("Block unlock method")
+        self._auth.addItem("Custom password", "password")
+        self._auth.addItem("Windows authentication", "windows")
+        self._auth.addItem("No password", "none")
+        index = self._auth.findData(str(self._workspace.project.block_auth_method))
+        self._auth.setCurrentIndex(index if index >= 0 else 0)
+        self._auth.currentIndexChanged.connect(self._set_auth_method)
+        auth_row.addWidget(self._auth, 1)
+        layout.addLayout(auth_row)
+        self._windows_hint = QLabel(
+            "Client users sign in with Windows (password, PIN, or fingerprint for the current account). "
+            "Optional allow-list, one account per line: DOMAIN\\user or user@domain. "
+            "Empty list = any Windows account that signs in. After Active Directory join, the same names apply."
+        )
+        self._windows_hint.setWordWrap(True)
+        self._windows = QPlainTextEdit()
+        self._windows.setAccessibleName("Allowed Windows users")
+        self._windows.setPlaceholderText(r"DOMAIN\user  or  user@domain")
+        self._windows.setMaximumHeight(80)
+        self._windows.setPlainText("\n".join(self._workspace.project.windows_principals))
+        self._windows.textChanged.connect(self._store_windows_principals)
+        layout.addWidget(self._windows_hint)
+        layout.addWidget(self._windows)
+
         splitter = QSplitter(Qt.Orientation.Horizontal)
         left = QWidget()
         left_layout = QVBoxLayout(left)
@@ -92,6 +122,7 @@ class ProjectWindow(QWidget):
         layout.addWidget(splitter, 1)
 
         QShortcut(QKeySequence.StandardKey.Save, self, self.save)
+        self._sync_auth_widgets()
 
     def _update_title(self) -> None:
         marker = " •" if self._workspace.dirty else ""
@@ -137,6 +168,26 @@ class ProjectWindow(QWidget):
 
     def _set_sequential(self, enabled: bool) -> None:
         self._workspace.set_sequential_unlock(enabled)
+        self._update_title()
+
+    def _sync_auth_widgets(self) -> None:
+        windows = self._workspace.project.block_auth_method is BlockAuthMethod.WINDOWS
+        self._windows.setVisible(windows)
+        self._windows_hint.setVisible(windows)
+        self._editor.sync_auth_ui()
+
+    def _set_auth_method(self) -> None:
+        method = self._auth.currentData()
+        principals = [line.strip() for line in self._windows.toPlainText().splitlines() if line.strip()]
+        self._workspace.set_block_auth_method(method, windows_principals=principals)
+        self._sync_auth_widgets()
+        self._update_title()
+
+    def _store_windows_principals(self) -> None:
+        if self._workspace.project.block_auth_method is not BlockAuthMethod.WINDOWS:
+            return
+        principals = [line.strip() for line in self._windows.toPlainText().splitlines() if line.strip()]
+        self._workspace.set_block_auth_method(BlockAuthMethod.WINDOWS, windows_principals=principals)
         self._update_title()
 
     def _on_block_selected(self, row: int) -> None:

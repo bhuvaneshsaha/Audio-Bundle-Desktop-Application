@@ -67,7 +67,7 @@ def _require_block_passwords(project: Project, block_passwords: dict[str, str]) 
     missing = [
         block.name
         for block in project.blocks
-        if block.auth_method is BlockAuthMethod.PASSWORD and not block_passwords.get(block.id)
+        if project.block_auth_method is BlockAuthMethod.PASSWORD and not block_passwords.get(block.id)
     ]
     if missing:
         raise ValidationError(
@@ -117,7 +117,7 @@ def write_bundle(
         block_key = crypto.new_content_key()
         block_context = block.id.encode("utf-8")
         wrap_aad = bind_aad(AAD_CHUNK_BLOCK_WRAP, context=block_context)
-        if block.auth_method is BlockAuthMethod.PASSWORD:
+        if project.block_auth_method is BlockAuthMethod.PASSWORD:
             sealed_block = crypto.seal_key(block_passwords[block.id], block_key, aad=wrap_aad)
         else:
             sealed_block = crypto.wrap_with_key(bundle_key, block_key, aad=wrap_aad)

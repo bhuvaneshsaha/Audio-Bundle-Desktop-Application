@@ -43,12 +43,7 @@ def file_item(item: MediaItem) -> QListWidgetItem:
 
 def block_item(block: Block) -> QListWidgetItem:
     count = len(block.items)
-    method = {
-        "password": "password",
-        "windows": "Windows",
-        "none": "no password",
-    }.get(str(block.auth_method), str(block.auth_method))
-    label = f"☰  {block.name}    ({count} file{'s' if count != 1 else ''}, {method})"
+    label = f"☰  {block.name}    ({count} file{'s' if count != 1 else ''})"
     row = QListWidgetItem(label)
     row.setData(Qt.ItemDataRole.UserRole, block.id)
     return row
