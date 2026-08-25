@@ -139,7 +139,12 @@ class BundleGeneratorDialog(QDialog):
     def _on_finished(self, path: str) -> None:
         self._cleanup_progress()
         remember_path("Admin", "last_bundle_dir", path)
-        QMessageBox.information(self, "Generate Bundle", f"Bundle saved to:\n{path}")
+        passwords = self._workspace.password_export_path(Path(path))
+        QMessageBox.information(
+            self,
+            "Generate Bundle",
+            f"Bundle saved to:\n{path}\n\nPassword export saved to:\n{passwords}",
+        )
         self.accept()
 
     def _on_failed(self, message: str) -> None:

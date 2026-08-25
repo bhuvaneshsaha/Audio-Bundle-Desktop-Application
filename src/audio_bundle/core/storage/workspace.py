@@ -7,6 +7,7 @@ from audio_bundle.core.bundle.writer import write_bundle
 from audio_bundle.core.crypto.engine import CryptoEngine
 from audio_bundle.core.crypto.hashing import sha256_hex
 from audio_bundle.core.models.block import Block
+from audio_bundle.core.models.folder import ProjectFolder
 from audio_bundle.core.models.media_item import MediaItem
 from audio_bundle.core.models.media_type import MediaType
 from audio_bundle.core.models.project import Project
@@ -15,7 +16,6 @@ from audio_bundle.core.validation.fields import require_non_empty_name
 from audio_bundle.core.validation.project import validate_block_graph, validate_project_graph
 from audio_bundle.shared.constants import BUNDLE_EXTENSION, MAX_FILENAME_LENGTH
 from audio_bundle.shared.errors import BundleError, ValidationError
-from audio_bundle.shared.utilities import new_id
 
 
 def project_dir_name(name: str) -> str:
@@ -129,9 +129,45 @@ class ProjectWorkspace:
             number += 1
         return f"Block {number}"
 
-    def add_block(self, name: str | None = None) -> Block:
-        block = Block(name=name or self.next_block_name(), id=new_id())
-        self.project.add_block(block)
+    def next_day_folder_name(self) -> str:
+        used: set[int] = set()
+        for folder in self.project.folders:
+            if folder.parent_id is not None:
+                continue
+            prefix = "Day "
+            if folder.name.startswith(prefix):
+                suffix = folder.name[len(prefix) :]
+                if suffix.isdigit():
+                    used.add(int(suffix))
+        number = 1
+        while number in used:
+            number += 1
+        return f"Day {number}"
+
+    def add_day_folder(self, name: str | None = None) -> ProjectFolder:
+        folder = self.project.add_folder(name or self.next_day_folder_name(), parent_id=None)
+        self.dirty = True
+        return folder
+
+    def add_subfolder(self, parent_id: str, name: str | None = None) -> ProjectFolder:
+        folder = self.project.add_folder(name or "New Folder", parent_id=parent_id)
+        self.dirty = True
+        return folder
+
+    def rename_folder(self, folder_id: str, name: str) -> ProjectFolder:
+        folder = self.project.rename_folder(folder_id, name)
+        self.dirty = True
+        return folder
+
+    def remove_folder(self, folder_id: str) -> None:
+        self.project.remove_folder(folder_id)
+        self.dirty = True
+
+    def add_block(self, name: str | None = None, *, folder_id: str | None = None) -> Block:
+        block = Block(name=name or self.next_block_name())
+        if folder_id is None:
+            folder_id = self.add_day_folder().id
+        self.project.add_block(block, folder_id=folder_id)
         (self.root / "blocks" / block.id).mkdir(parents=True, exist_ok=True)
         self.dirty = True
         return block
@@ -161,6 +197,10 @@ class ProjectWorkspace:
         self.project.touch()
         self.dirty = True
         return block
+
+    def move_block_to_folder(self, block_id: str, folder_id: str) -> None:
+        self.project.assign_block_folder(block_id, folder_id)
+        self.dirty = True
 
     def remove_block(self, block_id: str) -> None:
         self.project.remove_block(block_id)
@@ -252,6 +292,10 @@ class ProjectWorkspace:
         slug = project_dir_name(self.project.name).replace(" ", "_")
         return self.root / "output" / f"{slug}{BUNDLE_EXTENSION}"
 
+    def password_export_path(self, bundle_path: Path) -> Path:
+        target = Path(bundle_path)
+        return target.with_name(f"{target.stem}_passwords.txt")
+
     def generate_bundle(
         self,
         output_path: Path,
@@ -262,12 +306,33 @@ class ProjectWorkspace:
     ) -> Path:
         if self.dirty:
             self.save()
+        resolved_block_passwords = (
+            block_passwords if block_passwords is not None else self.session_block_passwords()
+        )
         write_bundle(
             self.project,
             output_path,
             main_password=main_password,
-            block_passwords=block_passwords if block_passwords is not None else self.session_block_passwords(),
+            block_passwords=resolved_block_passwords,
             source_root=self.root,
             engine=engine,
         )
+        password_file = self.password_export_path(output_path)
+        lines = [
+            f"Project: {self.project.name}",
+            f"Bundle: {Path(output_path).name}",
+            "",
+            f"Main password: {main_password}",
+            "",
+            "Block passwords:",
+        ]
+        for block in self.project.blocks:
+            folder_path = " / ".join(self.project.folder_path(block.folder_id))
+            key = resolved_block_passwords.get(block.id, "(not required)")
+            lines.append(f"- {folder_path} / {block.name}: {key}")
+        try:
+            password_file.parent.mkdir(parents=True, exist_ok=True)
+            password_file.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        except OSError as exc:
+            raise BundleError("Could not write the password export file.", code="password_export_error") from exc
         return Path(output_path)

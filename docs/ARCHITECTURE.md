@@ -35,9 +35,10 @@ Admin and Client share `core` and can be packaged as two PyInstaller entry point
 
 Editable admin document: name, timestamps, ordered `Block` list. Schema versioned (`PROJECT_SCHEMA_VERSION`).
 
-### `Block`
+### `ProjectFolder` + `Block`
 
-Named ordered list of `MediaItem`. **Passwords are not fields on this model.** They are supplied at bundle generation (Milestone 3/4) and used only to wrap random block keys.
+Blocks are organized in logical folders (multi-level). Top-level folders default to `Day 1`, `Day 2`, and so on; subfolders default to `New Folder` and can be renamed.  
+Each `Block` is a named ordered list of `MediaItem` and belongs to one folder. **Passwords are not fields on this model.** They are supplied at bundle generation (Milestone 3/4) and used only to wrap random block keys.
 
 ### `MediaItem`
 
@@ -88,7 +89,7 @@ Implemented in `audio_bundle.core.crypto`, independent of Qt:
 
 ## Admin UI (Milestone 4)
 
-`audio_bundle.admin` is a PySide6 app. `ProjectWorkspace` copies imported files into `blocks/<block-id>/`, saves `project.json`, and calls `write_bundle` from a worker thread. Unlock method (custom password, Windows authentication, or none) is a **project** setting applied to every block. Client policies (one block at a time, sequential open) are project settings. Passwords are session-only.
+`audio_bundle.admin` is a PySide6 app. `ProjectWorkspace` copies imported files into `blocks/<block-id>/`, saves `project.json`, and calls `write_bundle` from a worker thread. Unlock method (custom password, Windows authentication, or none) is a **project** setting applied to every block. Client policies (one block at a time, sequential open) are project settings, and sequential open is enforced by folder progression and then block progression within folders. Passwords are session-only in `project.json`; bundle generation also writes a separate password export text file beside the output bundle for independent sharing.
 
 ## Client UI (Milestone 5)
 

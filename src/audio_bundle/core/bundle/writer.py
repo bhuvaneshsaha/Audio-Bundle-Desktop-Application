@@ -113,7 +113,11 @@ def write_bundle(
         encode_chunk(CHUNK_EMAN, encrypted_manifest.to_bytes()),
     ]
 
-    for block in project.blocks:
+    block_by_id = {block.id: block for block in project.blocks}
+    for summary in manifest.blocks:
+        block = block_by_id.get(summary.id)
+        if block is None:
+            raise ValidationError("Bundle manifest references an unknown block.", code="invalid_block")
         block_key = crypto.new_content_key()
         block_context = block.id.encode("utf-8")
         wrap_aad = bind_aad(AAD_CHUNK_BLOCK_WRAP, context=block_context)

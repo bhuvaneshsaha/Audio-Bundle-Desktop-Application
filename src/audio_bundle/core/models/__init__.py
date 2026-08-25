@@ -8,6 +8,7 @@ from audio_bundle.core.models.manifest import (
 )
 from audio_bundle.core.models.media_item import MediaItem
 from audio_bundle.core.models.media_type import MediaType
+from audio_bundle.core.models.folder import ProjectFolder
 from audio_bundle.core.models.project import Project
 
 __all__ = [
@@ -19,5 +20,6 @@ __all__ = [
     "BundleManifest",
     "MediaItem",
     "MediaType",
+    "ProjectFolder",
     "Project",
 ]

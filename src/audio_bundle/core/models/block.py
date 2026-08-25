@@ -27,6 +27,7 @@ class Block:
     name: str
     order: int = 0
     id: str = field(default_factory=new_id)
+    folder_id: str | None = None
     items: list[MediaItem] = field(default_factory=list)
     auth_method: BlockAuthMethod = BlockAuthMethod.PASSWORD
     windows_principals: list[str] = field(default_factory=list)
@@ -40,6 +41,8 @@ class Block:
         if isinstance(self.auth_method, str):
             self.auth_method = parse_block_auth_method(self.auth_method)
         self.windows_principals = parse_windows_principals(self.windows_principals)
+        if self.folder_id is not None:
+            self.folder_id = str(self.folder_id).strip() or None
         _renumber(self.items)
         validate_block_graph(self)
 
@@ -86,6 +89,7 @@ class Block:
             "id": self.id,
             "name": self.name,
             "order": self.order,
+            "folder_id": self.folder_id,
             "items": [item.to_dict() for item in self.items],
         }
 
@@ -104,6 +108,7 @@ class Block:
             id=str(payload["id"]) if "id" in payload else new_id(),
             name=payload["name"],
             order=int(payload.get("order", 0)),
+            folder_id=str(payload["folder_id"]) if payload.get("folder_id") else None,
             items=items,
             auth_method=parse_block_auth_method(payload.get("auth_method")),
             windows_principals=parse_windows_principals(payload.get("windows_principals")),

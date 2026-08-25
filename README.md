@@ -54,10 +54,10 @@ audio-bundle-admin
 ```
 
 1. **New project** — choose a parent folder and course name. The app creates `project.json`, `blocks/`, and `output/`.
-2. Add blocks, then **Add files** to import MP3/WAV/M4A/AAC or PDF. Drag the ☰ rows to set playback/display order.
+2. Create folders (top-level defaults are **Day 1**, **Day 2**, …; subfolders default to **New Folder**), add blocks inside folders, then **Add files** to import MP3/WAV/M4A/AAC or PDF. Drag the ☰ rows to set playback/display order.
 3. Choose **one unlock method for all blocks**: custom password, Windows authentication, or no password. Custom passwords stay in session memory (Show password is available). Optional Windows allow-list: `DOMAIN\user`, `user@domain`, or later `group:DOMAIN\Group`.
 4. Course options: auto-play, **one unlocked block at a time**, **open blocks in order**.
-5. **Save** writes `project.json` (never passwords). **Generate Bundle** asks for the main password.
+5. **Save** writes `project.json` (never passwords). **Generate Bundle** asks for the main password and also writes a sibling `*_passwords.txt` file with the main password and block passwords for independent sharing.
 
 Opening a bundle: run `audio-bundle-client`. The sample editable project lives at `samples/admin_project/project.json`.
 

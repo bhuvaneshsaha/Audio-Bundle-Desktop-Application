@@ -6,10 +6,10 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QLabel,
     QLineEdit,
-    QListWidget,
-    QListWidgetItem,
     QMessageBox,
     QProgressDialog,
+    QTreeWidget,
+    QTreeWidgetItem,
     QVBoxLayout,
     QWidget,
 )
@@ -67,7 +67,8 @@ class BundleView(QWidget):
         )
         self._hint.setWordWrap(True)
         layout.addWidget(self._hint)
-        self._blocks = QListWidget()
+        self._blocks = QTreeWidget()
+        self._blocks.setHeaderHidden(True)
         self._blocks.setAccessibleName("Blocks")
         self._blocks.itemActivated.connect(self._on_activated)
         layout.addWidget(self._blocks, 1)
@@ -82,25 +83,60 @@ class BundleView(QWidget):
     def refresh(self) -> None:
         if self._session is None:
             return
-        current = None
-        if self._blocks.currentItem() is not None:
-            current = str(self._blocks.currentItem().data(Qt.ItemDataRole.UserRole))
+        current = self._selected_block_id()
         self._blocks.clear()
+        folders: dict[tuple[str, ...], QTreeWidgetItem] = {}
         for block in self._session.opened.manifest.blocks:
+            parent = self._blocks.invisibleRootItem()
+            path: tuple[str, ...] = tuple(block.folder_path)
+            for depth in range(len(path)):
+                key = path[: depth + 1]
+                if key not in folders:
+                    node = QTreeWidgetItem([key[-1]])
+                    node.setData(0, Qt.ItemDataRole.UserRole, None)
+                    folders[key] = node
+                    parent.addChild(node)
+                parent = folders[key]
             lock = "Unlocked" if self._session.is_unlocked(block.id) else "Locked"
-            row = QListWidgetItem(f"{lock} — {block.name}")
-            row.setData(Qt.ItemDataRole.UserRole, block.id)
-            row.setToolTip(block.name)
-            self._blocks.addItem(row)
+            row = QTreeWidgetItem([f"{lock} — {block.name}"])
+            row.setData(0, Qt.ItemDataRole.UserRole, block.id)
+            row.setToolTip(0, block.name)
+            parent.addChild(row)
             if current == block.id:
                 self._blocks.setCurrentItem(row)
-        if self._blocks.currentRow() < 0 and self._blocks.count():
-            self._blocks.setCurrentRow(0)
+        self._blocks.expandAll()
+        if self._blocks.currentItem() is None:
+            first = self._first_block_item()
+            if first is not None:
+                self._blocks.setCurrentItem(first)
 
-    def _on_activated(self, item: QListWidgetItem) -> None:
+    def _selected_block_id(self) -> str | None:
+        item = self._blocks.currentItem()
+        if item is None:
+            return None
+        data = item.data(0, Qt.ItemDataRole.UserRole)
+        return str(data) if data else None
+
+    def _first_block_item(self) -> QTreeWidgetItem | None:
+        root = self._blocks.invisibleRootItem()
+        stack = [root.child(i) for i in range(root.childCount() - 1, -1, -1)]
+        while stack:
+            node = stack.pop()
+            data = node.data(0, Qt.ItemDataRole.UserRole)
+            if data:
+                return node
+            for index in range(node.childCount() - 1, -1, -1):
+                stack.append(node.child(index))
+        return None
+
+    def _on_activated(self, item: QTreeWidgetItem, _column: int) -> None:
         if self._session is None or item is None:
             return
-        block_id = str(item.data(Qt.ItemDataRole.UserRole))
+        raw_id = item.data(0, Qt.ItemDataRole.UserRole)
+        if not raw_id:
+            item.setExpanded(not item.isExpanded())
+            return
+        block_id = str(raw_id)
         if self._session.is_unlocked(block_id):
             self.openBlock.emit(block_id)
             return

@@ -19,8 +19,10 @@ def _engine() -> CryptoEngine:
 def test_create_save_reload_and_generate(tmp_path: Path) -> None:
     workspace = ProjectWorkspace.create(tmp_path, "Demo Course")
     assert workspace.project_file.is_file()
-    intro = workspace.add_block("Introduction")
-    lesson = workspace.add_block("Lesson 1")
+    day1 = workspace.add_day_folder()
+    day2 = workspace.add_day_folder()
+    intro = workspace.add_block("Introduction", folder_id=day1.id)
+    lesson = workspace.add_block("Lesson 1", folder_id=day2.id)
     audio = tmp_path / "welcome.mp3"
     pdf = tmp_path / "notes.pdf"
     extra = tmp_path / "zeta.mp3"
@@ -53,10 +55,16 @@ def test_create_save_reload_and_generate(tmp_path: Path) -> None:
         block_passwords=passwords,
         engine=_engine(),
     )
+    password_export = reloaded.password_export_path(bundle_path)
+    assert password_export.is_file()
+    exported = password_export.read_text(encoding="utf-8")
+    assert "Main password: main-secret" in exported
+    assert "Lesson 1" in exported
+    assert "Introduction" in exported
     payload = json.loads(reloaded.project_file.read_text(encoding="utf-8"))
     assert_no_secret_fields(payload)
     opened = open_bundle(bundle_path, "main-secret")
-    assert [block.name for block in opened.manifest.blocks] == ["Lesson 1", "Introduction"]
+    assert [block.name for block in opened.manifest.blocks] == ["Introduction", "Lesson 1"]
     block = next(block for block in opened.manifest.blocks if block.name == "Introduction")
     unlocked = opened.unlock_block(block.id, "pw-Introduction")
     assert [entry.display_name for entry in unlocked.contents.files] == ["Welcome"]
@@ -79,6 +87,8 @@ def test_numbered_blocks_session_passwords_and_autoplay(tmp_path: Path) -> None:
     second = workspace.add_block()
     assert first.name == "Block 1"
     assert second.name == "Block 2"
+    assert workspace.project.folder_path(first.folder_id) == ["Day 1"]
+    assert workspace.project.folder_path(second.folder_id) == ["Day 2"]
     workspace.remove_block(first.id)
     third = workspace.add_block()
     assert third.name == "Block 1"

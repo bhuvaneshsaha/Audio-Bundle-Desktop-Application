@@ -9,6 +9,8 @@ from PySide6.QtWidgets import (
     QInputDialog,
     QLabel,
     QLineEdit,
+    QListWidget,
+    QListWidgetItem,
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
@@ -93,6 +95,25 @@ class ProjectWindow(QWidget):
         splitter = QSplitter(Qt.Orientation.Horizontal)
         left = QWidget()
         left_layout = QVBoxLayout(left)
+        left_layout.addWidget(QLabel("Folders"))
+        self._folders = QListWidget()
+        self._folders.setAccessibleName("Folders")
+        self._folders.currentRowChanged.connect(self._on_folder_selected)
+        left_layout.addWidget(self._folders)
+        folder_buttons = QHBoxLayout()
+        add_day = QPushButton("Add day")
+        add_subfolder = QPushButton("Add subfolder")
+        rename_folder = QPushButton("Rename folder")
+        remove_folder = QPushButton("Remove folder")
+        add_day.clicked.connect(self._add_day_folder)
+        add_subfolder.clicked.connect(self._add_subfolder)
+        rename_folder.clicked.connect(self._rename_folder)
+        remove_folder.clicked.connect(self._remove_folder)
+        folder_buttons.addWidget(add_day)
+        folder_buttons.addWidget(add_subfolder)
+        folder_buttons.addWidget(rename_folder)
+        folder_buttons.addWidget(remove_folder)
+        left_layout.addLayout(folder_buttons)
         left_layout.addWidget(QLabel("Blocks"))
         self._blocks = ReorderList()
         self._blocks.setAccessibleName("Blocks")
@@ -104,11 +125,14 @@ class ProjectWindow(QWidget):
         add_block.setShortcut("Ctrl+B")
         rename_block = QPushButton("Rename")
         remove_block = QPushButton("Remove block")
+        move_block = QPushButton("Move to folder")
         add_block.clicked.connect(self._add_block)
         rename_block.clicked.connect(self._rename_block)
         remove_block.clicked.connect(self._remove_block)
+        move_block.clicked.connect(self._move_block_to_folder)
         block_buttons.addWidget(add_block)
         block_buttons.addWidget(rename_block)
+        block_buttons.addWidget(move_block)
         block_buttons.addWidget(remove_block)
         left_layout.addLayout(block_buttons)
 
@@ -123,6 +147,7 @@ class ProjectWindow(QWidget):
 
         QShortcut(QKeySequence.StandardKey.Save, self, self.save)
         self._sync_auth_widgets()
+        self._refresh_folders()
 
     def _update_title(self) -> None:
         marker = " •" if self._workspace.dirty else ""
@@ -145,7 +170,10 @@ class ProjectWindow(QWidget):
         self._blocks.blockSignals(True)
         self._blocks.clear()
         for block in self._workspace.project.blocks:
-            self._blocks.addItem(block_item(block))
+            folder = " / ".join(self._workspace.project.folder_path(block.folder_id))
+            row = block_item(block)
+            row.setText(f"☰  {folder} / {block.name}    ({len(block.items)} file{'s' if len(block.items) != 1 else ''})")
+            self._blocks.addItem(row)
         self._blocks.blockSignals(False)
         if not self._workspace.project.blocks:
             self._editor.show_block(None)
@@ -157,6 +185,54 @@ class ProjectWindow(QWidget):
                     row = index
                     break
         self._blocks.setCurrentRow(row)
+
+    def _folder_rows(self) -> list[tuple[object, int]]:
+        order: list[tuple[object, int]] = []
+        children: dict[str | None, list[object]] = {}
+        for folder in self._workspace.project.folders:
+            children.setdefault(folder.parent_id, []).append(folder)
+        for group in children.values():
+            group.sort(key=lambda folder: folder.order)
+
+        def walk(parent_id: str | None, depth: int) -> None:
+            for folder in children.get(parent_id, []):
+                order.append((folder, depth))
+                walk(folder.id, depth + 1)
+
+        walk(None, 0)
+        return order
+
+    def _refresh_folders(self, select_id: str | None = None) -> None:
+        current_id = select_id
+        if current_id is None and self._folders.currentItem() is not None:
+            current_id = str(self._folders.currentItem().data(Qt.ItemDataRole.UserRole))
+        self._folders.blockSignals(True)
+        self._folders.clear()
+        for folder, depth in self._folder_rows():
+            indent = "  " * depth
+            row = QListWidgetItem(f"{indent}{folder.name}")
+            row.setData(Qt.ItemDataRole.UserRole, folder.id)
+            self._folders.addItem(row)
+        self._folders.blockSignals(False)
+        if self._folders.count() == 0:
+            return
+        row = 0
+        if current_id:
+            for index in range(self._folders.count()):
+                item = self._folders.item(index)
+                if item is not None and str(item.data(Qt.ItemDataRole.UserRole)) == current_id:
+                    row = index
+                    break
+        self._folders.setCurrentRow(row)
+
+    def _selected_folder_id(self) -> str | None:
+        item = self._folders.currentItem()
+        if item is None:
+            return None
+        return str(item.data(Qt.ItemDataRole.UserRole))
+
+    def _on_folder_selected(self, _row: int) -> None:
+        self._update_title()
 
     def _set_autoplay(self, enabled: bool) -> None:
         self._workspace.set_autoplay_on_open(enabled)
@@ -211,15 +287,74 @@ class ProjectWindow(QWidget):
         if 0 <= current < len(self._workspace.project.blocks):
             current_id = self._workspace.project.blocks[current].id
         self._refresh_blocks(current_id)
+        self._refresh_folders()
         self._update_title()
 
     def _add_block(self) -> None:
         try:
-            block = self._workspace.add_block()
+            folder_id = self._selected_folder_id()
+            block = self._workspace.add_block(folder_id=folder_id)
         except Exception as exc:
             QMessageBox.warning(self, "Audio Bundle", user_message(exc))
             return
         self._refresh_blocks(block.id)
+        self._refresh_folders(block.folder_id)
+        self._update_title()
+
+    def _add_day_folder(self) -> None:
+        try:
+            folder = self._workspace.add_day_folder()
+        except Exception as exc:
+            QMessageBox.warning(self, "Audio Bundle", user_message(exc))
+            return
+        self._refresh_folders(folder.id)
+        self._update_title()
+
+    def _add_subfolder(self) -> None:
+        parent_id = self._selected_folder_id()
+        if not parent_id:
+            QMessageBox.information(self, "Add subfolder", "Select a parent folder first.")
+            return
+        try:
+            folder = self._workspace.add_subfolder(parent_id)
+        except Exception as exc:
+            QMessageBox.warning(self, "Audio Bundle", user_message(exc))
+            return
+        self._refresh_folders(folder.id)
+        self._update_title()
+
+    def _rename_folder(self) -> None:
+        folder_id = self._selected_folder_id()
+        if not folder_id:
+            return
+        folder = self._workspace.project.get_folder(folder_id)
+        name, ok = QInputDialog.getText(self, "Rename folder", "Folder name", text=folder.name)
+        if not ok:
+            return
+        try:
+            self._workspace.rename_folder(folder_id, name)
+        except Exception as exc:
+            QMessageBox.warning(self, "Audio Bundle", user_message(exc))
+            return
+        self._refresh_folders(folder_id)
+        self._refresh_blocks()
+        self._update_title()
+
+    def _remove_folder(self) -> None:
+        folder_id = self._selected_folder_id()
+        if not folder_id:
+            return
+        folder = self._workspace.project.get_folder(folder_id)
+        confirm = QMessageBox.question(self, "Remove folder", f"Remove “{folder.name}”?")
+        if confirm != QMessageBox.StandardButton.Yes:
+            return
+        try:
+            self._workspace.remove_folder(folder_id)
+        except Exception as exc:
+            QMessageBox.warning(self, "Audio Bundle", user_message(exc))
+            return
+        self._refresh_folders()
+        self._refresh_blocks()
         self._update_title()
 
     def _rename_block(self) -> None:
@@ -256,6 +391,23 @@ class ProjectWindow(QWidget):
             QMessageBox.warning(self, "Audio Bundle", user_message(exc))
             return
         self._refresh_blocks()
+        self._refresh_folders()
+        self._update_title()
+
+    def _move_block_to_folder(self) -> None:
+        row = self._blocks.currentRow()
+        folder_id = self._selected_folder_id()
+        if row < 0 or not folder_id:
+            QMessageBox.information(self, "Move block", "Select both a block and destination folder.")
+            return
+        block = self._workspace.project.blocks[row]
+        try:
+            self._workspace.move_block_to_folder(block.id, folder_id)
+        except Exception as exc:
+            QMessageBox.warning(self, "Audio Bundle", user_message(exc))
+            return
+        self._refresh_blocks(block.id)
+        self._refresh_folders(folder_id)
         self._update_title()
 
     def save(self) -> None:

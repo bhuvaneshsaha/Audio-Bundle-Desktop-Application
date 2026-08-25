@@ -62,3 +62,34 @@ def test_client_session_does_not_materialize_while_locked(tmp_path: Path) -> Non
         session.materialize_file(block_id, "missing")
     assert exc.value.code == "block_locked"
     session.close()
+
+
+def test_sequential_unlock_checks_folders_then_blocks(tmp_path: Path) -> None:
+    workspace = ProjectWorkspace.create(tmp_path, "Sequence")
+    day1 = workspace.add_day_folder("Day 1")
+    day2 = workspace.add_day_folder("Day 2")
+    day1_intro = workspace.add_block("Intro", folder_id=day1.id)
+    day1_next = workspace.add_block("Part 2", folder_id=day1.id)
+    day2_intro = workspace.add_block("Day2 Intro", folder_id=day2.id)
+    audio = tmp_path / "a.mp3"
+    audio.write_bytes(b"audio")
+    workspace.import_files(day1_intro.id, [audio])
+    workspace.import_files(day1_next.id, [audio])
+    workspace.import_files(day2_intro.id, [audio])
+    passwords = {
+        day1_intro.id: "p1",
+        day1_next.id: "p2",
+        day2_intro.id: "p3",
+    }
+    bundle = tmp_path / "sequence.audiobundle"
+    workspace.generate_bundle(bundle, main_password="main", block_passwords=passwords, engine=_engine())
+    session = ClientSession.open(bundle, "main")
+    with pytest.raises(BundleError) as intra:
+        session.unlock_block(day1_next.id, "p2")
+    assert intra.value.code == "sequential_block_required"
+    with pytest.raises(BundleError) as exc:
+        session.unlock_block(day2_intro.id, "p3")
+    assert exc.value.code == "sequential_block_required"
+    session.unlock_block(day1_intro.id, "p1")
+    session.unlock_block(day2_intro.id, "p3")
+    session.close()

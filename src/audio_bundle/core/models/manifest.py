@@ -95,6 +95,7 @@ class BundleBlockSummary:
     name: str
     order: int = 0
     id: str = field(default_factory=new_id)
+    folder_path: list[str] = field(default_factory=list)
     auth_method: BlockAuthMethod = BlockAuthMethod.PASSWORD
     windows_principals: list[str] = field(default_factory=list)
 
@@ -104,10 +105,19 @@ class BundleBlockSummary:
             raise ValidationError("Block order must be a non-negative integer.", code="invalid_order")
         if isinstance(self.auth_method, str):
             self.auth_method = parse_block_auth_method(self.auth_method)
+        if not isinstance(self.folder_path, list):
+            raise ValidationError("Folder path must be a list.", code="invalid_folder_path")
+        self.folder_path = [require_non_empty_name(str(part), field="Folder name") for part in self.folder_path]
         self.windows_principals = parse_windows_principals(self.windows_principals)
 
     def to_dict(self) -> dict[str, Any]:
-        payload = {"id": self.id, "name": self.name, "order": self.order, "auth_method": str(self.auth_method)}
+        payload = {
+            "id": self.id,
+            "name": self.name,
+            "order": self.order,
+            "folder_path": list(self.folder_path),
+            "auth_method": str(self.auth_method),
+        }
         if self.auth_method is BlockAuthMethod.WINDOWS:
             payload["windows_principals"] = list(self.windows_principals)
         return payload
@@ -120,6 +130,7 @@ class BundleBlockSummary:
             id=str(payload["id"]) if "id" in payload else new_id(),
             name=payload["name"],
             order=int(payload.get("order", 0)),
+            folder_path=[str(part) for part in payload.get("folder_path", [])],
             auth_method=parse_block_auth_method(payload.get("auth_method")),
             windows_principals=parse_windows_principals(payload.get("windows_principals")),
         )
@@ -274,6 +285,27 @@ class BundleManifest:
             raise ValidationError("Expected a Project model.", code="invalid_project")
         method = getattr(project, "block_auth_method", BlockAuthMethod.PASSWORD)
         principals = list(getattr(project, "windows_principals", []))
+        children: dict[str | None, list[object]] = {}
+        for folder in project.folders:
+            children.setdefault(folder.parent_id, []).append(folder)
+        for group in children.values():
+            group.sort(key=lambda folder: folder.order)
+        ordered_folders: list[str] = []
+
+        def walk(parent_id: str | None) -> None:
+            for folder in children.get(parent_id, []):
+                ordered_folders.append(folder.id)
+                walk(folder.id)
+
+        walk(None)
+        folder_blocks: dict[str, list[object]] = {folder_id: [] for folder_id in ordered_folders}
+        for block in project.blocks:
+            if block.folder_id is None:
+                continue
+            folder_blocks.setdefault(block.folder_id, []).append(block)
+        ordered_blocks: list[object] = []
+        for folder_id in ordered_folders:
+            ordered_blocks.extend(sorted(folder_blocks.get(folder_id, []), key=lambda block: block.order))
         return cls(
             title=project.name,
             autoplay_on_open=bool(getattr(project, "autoplay_on_open", False)),
@@ -285,10 +317,11 @@ class BundleManifest:
                 BundleBlockSummary(
                     id=block.id,
                     name=block.name,
-                    order=block.order,
+                    order=index,
+                    folder_path=project.folder_path(block.folder_id),
                     auth_method=method,
                     windows_principals=principals,
                 )
-                for block in project.blocks
+                for index, block in enumerate(ordered_blocks)
             ],
         )

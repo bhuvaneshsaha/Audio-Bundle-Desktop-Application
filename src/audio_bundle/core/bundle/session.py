@@ -99,7 +99,23 @@ class ClientSession:
             return
         blocks = self.opened.manifest.blocks
         index = next(i for i, block in enumerate(blocks) if block.id == block_id)
+        target = blocks[index]
+        target_folder = tuple(target.folder_path)
+        opened_folders = {
+            tuple(block.folder_path)
+            for block in blocks
+            if block.id in self._opened_once
+        }
         for previous in blocks[:index]:
+            previous_folder = tuple(previous.folder_path)
+            if previous_folder != target_folder:
+                if previous_folder not in opened_folders:
+                    folder_label = " / ".join(previous.folder_path) if previous.folder_path else previous.name
+                    raise BundleError(
+                        f"Open the folder “{folder_label}” before this folder.",
+                        code="sequential_block_required",
+                    )
+                continue
             if previous.id not in self._opened_once:
                 raise BundleError(
                     f"Open “{previous.name}” before this block.",

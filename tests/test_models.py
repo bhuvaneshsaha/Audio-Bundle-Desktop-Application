@@ -108,9 +108,11 @@ def test_empty_block_is_allowed() -> None:
 
 def test_project_block_reorder_and_roundtrip(tmp_path: Path) -> None:
     project = Project(name="Course")
-    project.add_block(Block(name="Block C"))
-    project.add_block(Block(name="Block A"))
-    project.add_block(Block(name="Block B"))
+    day1 = project.add_folder("Day 1")
+    day2 = project.add_folder("Day 2")
+    project.add_block(Block(name="Block C"), folder_id=day1.id)
+    project.add_block(Block(name="Block A"), folder_id=day1.id)
+    project.add_block(Block(name="Block B"), folder_id=day2.id)
     project.move_block(0, 2)
     assert [block.name for block in project.blocks] == ["Block A", "Block B", "Block C"]
 
@@ -124,6 +126,7 @@ def test_project_block_reorder_and_roundtrip(tmp_path: Path) -> None:
     loaded = load_project(path)
     assert loaded.name == "Course"
     assert [block.name for block in loaded.blocks] == ["Block A", "Block B", "Block C"]
+    assert loaded.folder_path(loaded.blocks[0].folder_id) == ["Day 1"]
     assert [item.original_filename for item in loaded.blocks[0].items] == [
         "01 Introduction.mp3",
         "02 Lesson.mp3",
@@ -224,3 +227,4 @@ def test_sample_admin_project_loads() -> None:
     intro_names = [item.display_name for item in project.blocks[0].items]
     assert intro_names == ["Welcome audio", "Syllabus"]
     assert project.blocks[2].items == []
+    assert project.folder_path(project.blocks[0].folder_id) == ["Day 1"]
