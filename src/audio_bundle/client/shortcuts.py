@@ -15,10 +15,11 @@ Windows sign-in and open bundle
   Enter              Sign in or Open
   Alt+B              Browse for a bundle file
 
-Course blocks
-  Tab                Move to the block list
-  Up / Down          Move between blocks
-  Enter              Unlock or open the selected block
+Course folders and blocks
+  Tab                Move to the course tree
+  Up / Down          Move between folders and blocks
+  Left / Right       Collapse / expand a folder
+  Enter              Unlock or open the selected block (folders expand or collapse)
 
 Inside a block
   Up / Down          Move between files

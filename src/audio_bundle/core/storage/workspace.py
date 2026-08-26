@@ -7,6 +7,7 @@ from audio_bundle.core.bundle.writer import write_bundle
 from audio_bundle.core.crypto.engine import CryptoEngine
 from audio_bundle.core.crypto.hashing import sha256_hex
 from audio_bundle.core.models.block import Block
+from audio_bundle.core.models.folder import Folder
 from audio_bundle.core.models.media_item import MediaItem
 from audio_bundle.core.models.media_type import MediaType
 from audio_bundle.core.models.project import Project
@@ -129,8 +130,23 @@ class ProjectWorkspace:
             number += 1
         return f"Block {number}"
 
-    def add_block(self, name: str | None = None) -> Block:
-        block = Block(name=name or self.next_block_name(), id=new_id())
+    def add_folder(self, name: str | None = None, *, parent_id: str | None = None) -> Folder:
+        from audio_bundle.core.models.tree import next_root_folder_name
+
+        if parent_id is None:
+            self.project.root_folder_seq += 1
+            folder_name = name or next_root_folder_name(
+                self.project.folders, sequence=self.project.root_folder_seq
+            )
+        else:
+            folder_name = name or self.project.default_nested_folder_name(parent_id)
+        folder = Folder(name=folder_name, parent_id=parent_id)
+        self.project.add_folder(folder)
+        self.dirty = True
+        return folder
+
+    def add_block(self, name: str | None = None, *, parent_id: str | None = None) -> Block:
+        block = Block(name=name or self.next_block_name(), id=new_id(), parent_id=parent_id)
         self.project.add_block(block)
         (self.root / "blocks" / block.id).mkdir(parents=True, exist_ok=True)
         self.dirty = True
@@ -155,6 +171,22 @@ class ProjectWorkspace:
             if self.project.block_auth_method is BlockAuthMethod.PASSWORD and not self.block_password(block.id)
         ]
 
+    def rename_folder(self, folder_id: str, name: str) -> Folder:
+        folder = self.project.get_folder(folder_id)
+        folder.name = require_non_empty_name(name, field="Folder name")
+        self.project.touch()
+        self.dirty = True
+        return folder
+
+    def remove_folder(self, folder_id: str) -> None:
+        _folder, removed_blocks = self.project.remove_folder(folder_id)
+        for block in removed_blocks:
+            self._block_passwords.pop(block.id, None)
+            folder = self.root / "blocks" / block.id
+            if folder.exists():
+                shutil.rmtree(folder)
+        self.dirty = True
+
     def rename_block(self, block_id: str, name: str) -> Block:
         block = self.project.get_block(block_id)
         block.name = require_non_empty_name(name, field="Block name")
@@ -175,14 +207,17 @@ class ProjectWorkspace:
         self.dirty = True
 
     def reorder_blocks(self, ordered_ids: list[str]) -> None:
-        mapping = {block.id: block for block in self.project.blocks}
-        if set(ordered_ids) != set(mapping) or len(ordered_ids) != len(mapping):
-            raise ValidationError("Block list is inconsistent.", code="invalid_order")
-        self.project.blocks = [mapping[block_id] for block_id in ordered_ids]
-        for index, block in enumerate(self.project.blocks):
-            block.order = index
+        parent_id = None
+        if ordered_ids:
+            first = self.project.get_block(ordered_ids[0])
+            parent_id = first.parent_id
+        self.project.reorder_siblings(parent_id, ordered_ids)
         validate_project_graph(self.project)
         self.project.touch()
+        self.dirty = True
+
+    def move_node(self, node_id: str, *, delta: int) -> None:
+        self.project.move_node(node_id, delta=delta)
         self.dirty = True
 
     def import_files(self, block_id: str, source_paths: list[Path]) -> list[MediaItem]:

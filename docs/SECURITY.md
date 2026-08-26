@@ -37,7 +37,7 @@ This is not consumer DRM. A modified unofficial client that already has the main
 ## Client policies (Admin settings)
 
 * **Single active block** (default on for new projects): unlocking a block locks the previous one and deletes its temp files.
-* **Sequential unlock** (default on for new projects): block *n* cannot open until blocks `0..n-1` have been opened at least once in this session.
+* **Sequential unlock** (default on for new projects): block *n* in a folder cannot open until earlier **sibling blocks** in that folder have been opened at least once in this session. Starting another folder does not require finishing the first.
 
 Old bundles that omit these flags keep the previous behaviour (both off).
 

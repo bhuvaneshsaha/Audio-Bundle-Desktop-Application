@@ -33,7 +33,11 @@ Admin and Client share `core` and can be packaged as two PyInstaller entry point
 
 ### `Project`
 
-Editable admin document: name, timestamps, ordered `Block` list. Schema versioned (`PROJECT_SCHEMA_VERSION`).
+Editable admin document: name, timestamps, `Folder` tree (max three levels) and `Block` list. Schema versioned (`PROJECT_SCHEMA_VERSION`). Folders are labels only. Block sequence is scoped to the immediate parent folder.
+
+### `Folder` / `Block` (nodes)
+
+Each node has `id`, `parent_id` (null at the course root), `name`, `node_type` (`folder` \| `block`), and sibling `order` / `sort_order`. Root folders default to **Day 1, Day 2, …** and may be renamed to anything (`AGDF.21`, `Maintenance`, …). Names never change hierarchy or sequencing.
 
 ### `Block`
 
@@ -47,7 +51,7 @@ Order is an explicit contiguous index (`0..n-1`). Nothing sorts by filename.
 
 ### `BundleManifest` (outer)
 
-What the client may read after the **main** password: title, policies, and `BundleBlockSummary` (id, name, order, auth method). **No file list.**
+What the client may read after the **main** password: title, policies, folders, and `BundleBlockSummary` (id, parent, name, sibling order, auth method). **No file list.** Folders have no lock or sequence.
 
 ### `BundleBlockContents` (inner)
 
@@ -88,11 +92,11 @@ Implemented in `audio_bundle.core.crypto`, independent of Qt:
 
 ## Admin UI (Milestone 4)
 
-`audio_bundle.admin` is a PySide6 app. `ProjectWorkspace` copies imported files into `blocks/<block-id>/`, saves `project.json`, and calls `write_bundle` from a worker thread. Unlock method (custom password, Windows authentication, or none) is a **project** setting applied to every block. Client policies (one block at a time, sequential open) are project settings. Passwords are session-only.
+`audio_bundle.admin` is a PySide6 app. `ProjectWorkspace` copies imported files into `blocks/<block-id>/`, saves `project.json`, and calls `write_bundle` from a worker thread. Unlock method (custom password, Windows authentication, or none) is a **project** setting applied to every block. Client policies (one block at a time, sequential open **within each folder**) are project settings. Passwords are session-only.
 
 ## Client UI (Milestone 5)
 
-`audio_bundle.client` requires a Windows sign-in (username/password or Hello/PIN/fingerprint for the current user) before opening a bundle. It then opens the bundle on a worker thread, lists blocks, unlocks using the course-wide method, and decrypts selected files into a process-private temp directory. Keyboard shortcuts are listed with F1.
+`audio_bundle.client` requires a Windows sign-in (username/password or Hello/PIN/fingerprint for the current user) before opening a bundle. It then opens the bundle on a worker thread, shows the folder/block tree, unlocks using the course-wide method, and decrypts selected files into a process-private temp directory. Keyboard shortcuts are listed with F1.
 
 ## Client playback (Milestones 6–7)
 

@@ -23,6 +23,7 @@ from audio_bundle.core.crypto.aead import encrypt
 from audio_bundle.core.crypto.engine import CryptoEngine
 from audio_bundle.core.crypto.hashing import sha256_hex
 from audio_bundle.core.models.auth_method import BlockAuthMethod
+from audio_bundle.core.models.tree import blocks_in_tree_order
 from audio_bundle.core.models.manifest import BundleBlockContents, BundleFileEntry, BundleManifest
 from audio_bundle.core.models.project import Project
 from audio_bundle.shared.constants import (
@@ -113,7 +114,7 @@ def write_bundle(
         encode_chunk(CHUNK_EMAN, encrypted_manifest.to_bytes()),
     ]
 
-    for block in project.blocks:
+    for block in blocks_in_tree_order(getattr(project, "folders", []), project.blocks) or project.blocks:
         block_key = crypto.new_content_key()
         block_context = block.id.encode("utf-8")
         wrap_aad = bind_aad(AAD_CHUNK_BLOCK_WRAP, context=block_context)

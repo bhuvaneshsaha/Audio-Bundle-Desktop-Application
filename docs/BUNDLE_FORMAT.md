@@ -79,8 +79,11 @@ Outer manifest (`EMAN`) — **no filenames, no blob ids**:
   "sequential_unlock": true,
   "block_auth_method": "password",
   "windows_principals": [],
+  "folders": [
+    { "id": "uuid", "parent_id": null, "name": "Day 1", "node_type": "folder", "sort_order": 0 }
+  ],
   "blocks": [
-    { "id": "uuid", "name": "Introduction", "order": 0, "auth_method": "password" }
+    { "id": "uuid", "parent_id": "uuid", "name": "Introduction", "order": 0, "auth_method": "password" }
   ]
 }
 ```

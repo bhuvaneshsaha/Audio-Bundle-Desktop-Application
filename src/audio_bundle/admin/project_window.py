@@ -19,9 +19,11 @@ from PySide6.QtWidgets import (
 
 from audio_bundle.admin.block_editor import BlockEditor
 from audio_bundle.admin.bundle_generator import BundleGeneratorDialog
-from audio_bundle.admin.file_list import ReorderList, block_item
+from audio_bundle.admin.course_tree import CourseTree
 from audio_bundle.core.models.auth_method import BlockAuthMethod
+from audio_bundle.core.models.node import NodeType
 from audio_bundle.core.storage.workspace import ProjectWorkspace
+from audio_bundle.shared.constants import MAX_FOLDER_DEPTH
 from audio_bundle.shared.messages import user_message
 
 
@@ -58,7 +60,9 @@ class ProjectWindow(QWidget):
         self._single.setChecked(self._workspace.project.single_active_block)
         self._single.toggled.connect(self._set_single)
         layout.addWidget(self._single)
-        self._sequential = QCheckBox("Blocks must be opened in order (block 2 only after block 1 has been opened)")
+        self._sequential = QCheckBox(
+            "Blocks in the same folder must be opened in order. Other folders are independent."
+        )
         self._sequential.setChecked(self._workspace.project.sequential_unlock)
         self._sequential.toggled.connect(self._set_sequential)
         layout.addWidget(self._sequential)
@@ -93,24 +97,33 @@ class ProjectWindow(QWidget):
         splitter = QSplitter(Qt.Orientation.Horizontal)
         left = QWidget()
         left_layout = QVBoxLayout(left)
-        left_layout.addWidget(QLabel("Blocks"))
-        self._blocks = ReorderList()
-        self._blocks.setAccessibleName("Blocks")
-        self._blocks.currentRowChanged.connect(self._on_block_selected)
-        self._blocks.orderChanged.connect(self._on_block_reorder)
+        left_layout.addWidget(QLabel("Folders and blocks"))
+        self._blocks = CourseTree()
+        self._blocks.selectionChangedId.connect(self._on_tree_selected)
         left_layout.addWidget(self._blocks, 1)
         block_buttons = QHBoxLayout()
+        add_folder = QPushButton("Add folder")
         add_block = QPushButton("Add block")
         add_block.setShortcut("Ctrl+B")
         rename_block = QPushButton("Rename")
-        remove_block = QPushButton("Remove block")
+        remove_block = QPushButton("Remove")
+        move_up = QPushButton("Move up")
+        move_down = QPushButton("Move down")
+        add_folder.clicked.connect(self._add_folder)
         add_block.clicked.connect(self._add_block)
-        rename_block.clicked.connect(self._rename_block)
-        remove_block.clicked.connect(self._remove_block)
+        rename_block.clicked.connect(self._rename_node)
+        remove_block.clicked.connect(self._remove_node)
+        move_up.clicked.connect(lambda: self._move_node(-1))
+        move_down.clicked.connect(lambda: self._move_node(1))
+        block_buttons.addWidget(add_folder)
         block_buttons.addWidget(add_block)
         block_buttons.addWidget(rename_block)
         block_buttons.addWidget(remove_block)
         left_layout.addLayout(block_buttons)
+        order_buttons = QHBoxLayout()
+        order_buttons.addWidget(move_up)
+        order_buttons.addWidget(move_down)
+        left_layout.addLayout(order_buttons)
 
         self._editor = BlockEditor()
         self._editor.set_workspace(self._workspace)
@@ -139,24 +152,9 @@ class ProjectWindow(QWidget):
         self._update_title()
 
     def _refresh_blocks(self, select_id: str | None = None) -> None:
-        current_id = select_id
-        if current_id is None and self._blocks.currentItem() is not None:
-            current_id = str(self._blocks.currentItem().data(Qt.ItemDataRole.UserRole))
-        self._blocks.blockSignals(True)
-        self._blocks.clear()
-        for block in self._workspace.project.blocks:
-            self._blocks.addItem(block_item(block))
-        self._blocks.blockSignals(False)
-        if not self._workspace.project.blocks:
-            self._editor.show_block(None)
-            return
-        row = 0
-        if current_id:
-            for index, block in enumerate(self._workspace.project.blocks):
-                if block.id == current_id:
-                    row = index
-                    break
-        self._blocks.setCurrentRow(row)
+        current_id = select_id or self._blocks.selected_id()
+        self._blocks.rebuild(self._workspace.project, current_id)
+        self._on_tree_selected()
 
     def _set_autoplay(self, enabled: bool) -> None:
         self._workspace.set_autoplay_on_open(enabled)
@@ -190,72 +188,135 @@ class ProjectWindow(QWidget):
         self._workspace.set_block_auth_method(BlockAuthMethod.WINDOWS, windows_principals=principals)
         self._update_title()
 
-    def _on_block_selected(self, row: int) -> None:
-        if row < 0 or row >= len(self._workspace.project.blocks):
+    def _on_tree_selected(self) -> None:
+        if self._blocks.selected_kind() == str(NodeType.BLOCK):
+            self._editor.show_block(self._blocks.selected_id())
+        else:
             self._editor.show_block(None)
-            return
-        self._editor.show_block(self._workspace.project.blocks[row].id)
 
-    def _on_block_reorder(self) -> None:
-        try:
-            self._workspace.reorder_blocks(self._blocks.item_ids())
-        except Exception as exc:
-            QMessageBox.warning(self, "Audio Bundle", user_message(exc))
-            self._refresh_blocks()
-            return
-        self._update_title()
+    def _folder_parent_for_new(self) -> str | None:
+        kind = self._blocks.selected_kind()
+        node_id = self._blocks.selected_id()
+        if kind is None or node_id is None:
+            return None
+        if kind == str(NodeType.FOLDER):
+            depth = self._workspace.project.folder_depth_of(node_id)
+            if depth >= MAX_FOLDER_DEPTH:
+                return self._workspace.project.get_folder(node_id).parent_id
+            return node_id
+        return self._workspace.project.get_block(node_id).parent_id
+
+    def _block_parent_for_new(self) -> str | None:
+        kind = self._blocks.selected_kind()
+        node_id = self._blocks.selected_id()
+        if kind == str(NodeType.FOLDER) and node_id:
+            return node_id
+        if kind == str(NodeType.BLOCK) and node_id:
+            return self._workspace.project.get_block(node_id).parent_id
+        return None
 
     def _on_editor_changed(self) -> None:
-        current = self._blocks.currentRow()
-        current_id = None
-        if 0 <= current < len(self._workspace.project.blocks):
-            current_id = self._workspace.project.blocks[current].id
-        self._refresh_blocks(current_id)
+        self._refresh_blocks(self._blocks.selected_id())
+        self._update_title()
+
+    def _add_folder(self) -> None:
+        parent_id = self._folder_parent_for_new()
+        name = None
+        if parent_id is not None:
+            suggested = self._workspace.project.default_nested_folder_name(parent_id)
+            name, ok = QInputDialog.getText(self, "Add folder", "Folder name", text=suggested)
+            if not ok:
+                return
+        try:
+            folder = self._workspace.add_folder(name, parent_id=parent_id)
+        except Exception as exc:
+            QMessageBox.warning(self, "Audio Bundle", user_message(exc))
+            return
+        self._refresh_blocks(folder.id)
         self._update_title()
 
     def _add_block(self) -> None:
         try:
-            block = self._workspace.add_block()
+            block = self._workspace.add_block(parent_id=self._block_parent_for_new())
         except Exception as exc:
             QMessageBox.warning(self, "Audio Bundle", user_message(exc))
             return
         self._refresh_blocks(block.id)
         self._update_title()
 
-    def _rename_block(self) -> None:
-        row = self._blocks.currentRow()
-        if row < 0:
+    def _rename_node(self) -> None:
+        node_id = self._blocks.selected_id()
+        kind = self._blocks.selected_kind()
+        if node_id is None or kind is None:
             return
-        block = self._workspace.project.blocks[row]
-        name, ok = QInputDialog.getText(self, "Rename block", "Block name", text=block.name)
+        if kind == str(NodeType.FOLDER):
+            current = self._workspace.project.get_folder(node_id).name
+            title, label = "Rename folder", "Folder name"
+        else:
+            current = self._workspace.project.get_block(node_id).name
+            title, label = "Rename block", "Block name"
+        name, ok = QInputDialog.getText(self, title, label, text=current)
         if not ok:
             return
         try:
-            self._workspace.rename_block(block.id, name)
+            if kind == str(NodeType.FOLDER):
+                self._workspace.rename_folder(node_id, name)
+            else:
+                self._workspace.rename_block(node_id, name)
         except Exception as exc:
             QMessageBox.warning(self, "Audio Bundle", user_message(exc))
             return
-        self._refresh_blocks(block.id)
+        self._refresh_blocks(node_id)
         self._update_title()
 
-    def _remove_block(self) -> None:
-        row = self._blocks.currentRow()
-        if row < 0:
+    def _remove_node(self) -> None:
+        node_id = self._blocks.selected_id()
+        kind = self._blocks.selected_kind()
+        if node_id is None or kind is None:
             return
-        block = self._workspace.project.blocks[row]
-        confirm = QMessageBox.question(
-            self,
-            "Remove block",
-            f"Remove “{block.name}” and its files from this project?",
-        )
-        if confirm != QMessageBox.StandardButton.Yes:
+        if kind == str(NodeType.FOLDER):
+            folder = self._workspace.project.get_folder(node_id)
+            confirm = QMessageBox.question(
+                self,
+                "Remove folder",
+                f"Remove “{folder.name}” and everything inside it? Folders are organizational only; "
+                "blocks inside will be deleted from this project.",
+            )
+            if confirm != QMessageBox.StandardButton.Yes:
+                return
+            try:
+                self._workspace.remove_folder(node_id)
+            except Exception as exc:
+                QMessageBox.warning(self, "Audio Bundle", user_message(exc))
+                return
+        else:
+            block = self._workspace.project.get_block(node_id)
+            confirm = QMessageBox.question(
+                self,
+                "Remove block",
+                f"Remove “{block.name}” and its files from this project?",
+            )
+            if confirm != QMessageBox.StandardButton.Yes:
+                return
+            try:
+                self._workspace.remove_block(node_id)
+            except Exception as exc:
+                QMessageBox.warning(self, "Audio Bundle", user_message(exc))
+                return
+        self._refresh_blocks()
+        self._update_title()
+
+    def _move_node(self, delta: int) -> None:
+        node_id = self._blocks.selected_id()
+        if node_id is None:
             return
         try:
-            self._workspace.remove_block(block.id)
+            self._workspace.move_node(node_id, delta=delta)
         except Exception as exc:
             QMessageBox.warning(self, "Audio Bundle", user_message(exc))
+            self._refresh_blocks(node_id)
             return
-        self._refresh_blocks()
+        self._refresh_blocks(node_id)
         self._update_title()
 
     def save(self) -> None:

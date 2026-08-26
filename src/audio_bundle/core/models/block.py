@@ -9,6 +9,7 @@ from audio_bundle.core.models.auth_method import (
     parse_windows_principals,
 )
 from audio_bundle.core.models.media_item import MediaItem
+from audio_bundle.core.models.node import NodeType, parse_parent_id
 from audio_bundle.core.validation.fields import require_non_empty_name
 from audio_bundle.core.validation.project import validate_block_graph
 from audio_bundle.shared.errors import ValidationError
@@ -27,12 +28,18 @@ class Block:
     name: str
     order: int = 0
     id: str = field(default_factory=new_id)
+    parent_id: str | None = None
     items: list[MediaItem] = field(default_factory=list)
     auth_method: BlockAuthMethod = BlockAuthMethod.PASSWORD
     windows_principals: list[str] = field(default_factory=list)
 
+    @property
+    def node_type(self) -> NodeType:
+        return NodeType.BLOCK
+
     def __post_init__(self) -> None:
         self.name = require_non_empty_name(self.name, field="Block name")
+        self.parent_id = parse_parent_id(self.parent_id)
         if not isinstance(self.order, int) or self.order < 0:
             raise ValidationError("Block order must be a non-negative integer.", code="invalid_order")
         if not isinstance(self.items, list):
@@ -84,8 +91,11 @@ class Block:
     def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
+            "parent_id": self.parent_id,
             "name": self.name,
             "order": self.order,
+            "sort_order": self.order,
+            "node_type": str(NodeType.BLOCK),
             "items": [item.to_dict() for item in self.items],
         }
 
@@ -103,7 +113,8 @@ class Block:
         return cls(
             id=str(payload["id"]) if "id" in payload else new_id(),
             name=payload["name"],
-            order=int(payload.get("order", 0)),
+            parent_id=parse_parent_id(payload.get("parent_id")),
+            order=int(payload.get("sort_order", payload.get("order", 0))),
             items=items,
             auth_method=parse_block_auth_method(payload.get("auth_method")),
             windows_principals=parse_windows_principals(payload.get("windows_principals")),
