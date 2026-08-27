@@ -78,8 +78,8 @@ class BundleView(QWidget):
         self._title.setStyleSheet("font-size: 24px; font-weight: 600;")
         layout.addWidget(self._title)
         self._hint = QLabel(
-            "Folders are for organization only. Blocks show 🔓 when they can be opened or are open, "
-            "🔒 when an earlier block in the same day must be opened first, and ✓ after they have been opened. "
+            "Folders are for organization only. Blocks show 🔒 until they are opened, "
+            "🔓 while a block is open, and ✓ after it has been opened in this session. "
             "Sequence applies only to blocks in the same folder."
         )
         self._hint.setWordWrap(True)

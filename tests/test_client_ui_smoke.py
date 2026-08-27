@@ -24,7 +24,7 @@ def test_client_window_starts_offscreen() -> None:
 def test_block_status_icon_uses_lock_unlock_not_arrow() -> None:
     from audio_bundle.client.block_status import block_status_icon
 
-    assert block_status_icon(unlocked=False, opened=False, sequence_locked=False) == "🔓"
+    assert block_status_icon(unlocked=False, opened=False, sequence_locked=False) == "🔒"
     assert block_status_icon(unlocked=True, opened=True, sequence_locked=False) == "🔓"
     assert block_status_icon(unlocked=False, opened=False, sequence_locked=True) == "🔒"
     assert block_status_icon(unlocked=False, opened=True, sequence_locked=False) == "✓"

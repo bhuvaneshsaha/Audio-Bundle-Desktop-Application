@@ -22,8 +22,8 @@ Course folders and blocks
   Enter              Unlock or open the selected block (folders expand or collapse)
 
 Block marks
-  🔓                 Can open, or currently open
-  🔒                 Locked until an earlier block in the same day is opened
+  🔒                 Locked (not opened yet)
+  🔓                 Currently open
   ✓                  Opened earlier in this session
 
 Inside a block
