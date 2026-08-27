@@ -1,6 +1,6 @@
 # Security design
 
-Priority: **confidentiality of media**, **integrity of the bundle**, **no plaintext passwords on disk**. This is not consumer DRM. A determined user who can unlock content on their machine can record audio or screenshot PDFs.
+Priority: **confidentiality of media**, **integrity of the bundle**, **no plaintext passwords in `project.json` or the `.audiobundle`**. Generate Bundle may write a separate `{bundle}-passwords.txt` next to the encrypted file for independent sharing. This is not consumer DRM. A determined user who can unlock content on their machine can record audio or screenshot PDFs.
 
 ## Key hierarchy (envelope encryption)
 
@@ -28,7 +28,7 @@ BlockKey
 
 The official Client always asks for Windows credentials before any bundle is opened (shared PCs). Username/password uses `LogonUser`. Windows Hello / PIN / fingerprint verifies the *currently logged-on* user (`UserConsentVerifier`, with the system credential dialog as fallback). Shared kiosks should keep using typed credentials so a different person can sign in.
 
-How Windows-auth blocks differ from custom-password blocks (crypto vs Client gate): [BLOCK_AUTHENTICATION_SECURITY.md](BLOCK_AUTHENTICATION_SECURITY.md).
+How Windows-auth blocks differ from custom-password blocks (crypto vs Client gate): [BLOCK_AUTHENTICATION_SECURITY.md](BLOCK_AUTHENTICATION_SECURITY.md). Folder tree and per-day sequence: [COURSE_STRUCTURE.md](COURSE_STRUCTURE.md).
 
 **Active Directory:** the same LogonUser path accepts `DOMAIN\user` and `user@upn`. Allow-lists may include those names or `group:DOMAIN\\Group`. Group membership checks are recorded for AD-joined machines.
 
@@ -37,13 +37,13 @@ This is not consumer DRM. A modified unofficial client that already has the main
 ## Client policies (Admin settings)
 
 * **Single active block** (default on for new projects): unlocking a block locks the previous one and deletes its temp files.
-* **Sequential unlock** (default on for new projects): block *n* in a folder cannot open until earlier **sibling blocks** in that folder have been opened at least once in this session. Starting another folder does not require finishing the first.
+* **Sequential unlock** (default on for new projects): block *n* in a folder cannot open until earlier **sibling blocks** in that folder have been opened at least once in this session. Starting another folder does not require finishing the first. Folders are organization only. See [COURSE_STRUCTURE.md](COURSE_STRUCTURE.md).
 
 Old bundles that omit these flags keep the previous behaviour (both off).
 
 ## Keyboard shortcuts
 
-The Client lists shortcuts under F1 (play/pause, seek, back, block list). Intended for keyboard-only and screen-reader use.
+The Client lists shortcuts under F1 (play/pause, seek, back, folder/block tree). Intended for keyboard-only and screen-reader use.
 
 Content keys are random. Changing a password later re-wraps keys; it does not require re-encrypting large audio, as long as the BlockKey is retained in memory during Admin generate.
 
