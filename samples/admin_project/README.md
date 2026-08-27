@@ -12,7 +12,7 @@ Generate the distributable bundle (uses the test KDF profile so it opens quickly
 python scripts/generate_sample_bundle.py
 ```
 
-Output: `samples/Sample_Course.audiobundle`
+Output: `samples/Sample_Course.audiobundle` and `samples/Sample_Course-passwords.txt`
 
 Sample passwords (documentation only; never used in production projects):
 

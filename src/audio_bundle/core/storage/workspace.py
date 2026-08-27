@@ -4,6 +4,7 @@ import shutil
 from pathlib import Path
 
 from audio_bundle.core.bundle.writer import write_bundle
+from audio_bundle.core.bundle.password_sheet import write_password_sheet
 from audio_bundle.core.crypto.engine import CryptoEngine
 from audio_bundle.core.crypto.hashing import sha256_hex
 from audio_bundle.core.models.block import Block
@@ -299,12 +300,19 @@ class ProjectWorkspace:
     ) -> Path:
         if self.dirty:
             self.save()
+        passwords = block_passwords if block_passwords is not None else self.session_block_passwords()
         write_bundle(
             self.project,
             output_path,
             main_password=main_password,
-            block_passwords=block_passwords if block_passwords is not None else self.session_block_passwords(),
+            block_passwords=passwords,
             source_root=self.root,
             engine=engine,
+        )
+        write_password_sheet(
+            self.project,
+            output_path,
+            main_password=main_password,
+            block_passwords=passwords,
         )
         return Path(output_path)

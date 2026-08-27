@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
 
 from audio_bundle.admin.password_field import PasswordField
 from audio_bundle.admin.workers import GenerateBundleWorker
-from audio_bundle.core.storage.workspace import ProjectWorkspace
+from audio_bundle.core.bundle.password_sheet import password_sheet_path
 from audio_bundle.shared.constants import BUNDLE_EXTENSION
 from audio_bundle.shared.qt_paths import last_dir, remember_path
 
@@ -42,7 +42,8 @@ class BundleGeneratorDialog(QDialog):
         intro = QLabel(
             "Each custom-password block uses the password from its block editor. "
             "Windows and no-password blocks do not need a block password. "
-            "The main password is used only for this bundle and is not saved in the project."
+            "The main password is used only for this bundle and is not saved in the project. "
+            "A separate password text file is written next to the bundle so you can share it independently."
         )
         intro.setWordWrap(True)
         layout.addWidget(intro)
@@ -139,7 +140,12 @@ class BundleGeneratorDialog(QDialog):
     def _on_finished(self, path: str) -> None:
         self._cleanup_progress()
         remember_path("Admin", "last_bundle_dir", path)
-        QMessageBox.information(self, "Generate Bundle", f"Bundle saved to:\n{path}")
+        sheet = password_sheet_path(Path(path))
+        QMessageBox.information(
+            self,
+            "Generate Bundle",
+            f"Bundle saved to:\n{path}\n\nPassword file (share independently if you want):\n{sheet}",
+        )
         self.accept()
 
     def _on_failed(self, message: str) -> None:

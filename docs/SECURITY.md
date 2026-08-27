@@ -83,6 +83,8 @@ Never stored in:
 * temp files
 * source
 
+At **Generate Bundle** time the Admin writes a separate `{bundle}-passwords.txt` next to the `.audiobundle`. That file is plaintext on purpose so it can be printed or sent independently of the encrypted course. It is not part of the bundle and is not saved into `project.json`. Treat it like any other password list.
+
 Wrong main or block password: generic failure, no distinction that leaks whether a particular field was tampered vs mistyped **when the wrap blob does not decrypt**. After a successful main unlock, a later GCM failure on `EMAN`/`BLOB` is reported as **corruption/tamper**, not as a wrong password.
 
 ## Tamper detection
