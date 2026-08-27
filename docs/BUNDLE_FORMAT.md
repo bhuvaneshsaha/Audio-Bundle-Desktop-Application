@@ -111,6 +111,12 @@ Inner block manifest (`BMAN`):
 
 File order in `files` is the Admin order. Clients must not re-sort.
 
+Implemented courses use a **single folder level**: every folder in `folders` has `parent_id: null`. Blocks set `parent_id` to that day’s folder id (or `null` for older flat lists). Nested folders are not written. Sequence in the Client is sibling blocks that share the same `parent_id`.
+
+## Password sheet (not in the bundle)
+
+Generate Bundle writes `{stem}-passwords.txt` **next to** the `.audiobundle`. That file is plaintext for independent sharing. It is not a chunk, not in `EMAN`/`BMAN`, and not in `project.json`.
+
 ## Footer (truncation)
 
 Last 16 bytes:

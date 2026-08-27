@@ -9,11 +9,11 @@ src/audio_bundle/
 ├── admin/                 # Qt Admin UI (Milestone 4)
 ├── client/                # Qt Client UI (Milestone 5–7)
 ├── core/
-│   ├── models/            # Project, Block, MediaItem, BundleManifest
+│   ├── models/            # Project, Folder, Block, MediaItem, BundleManifest
 │   ├── validation/        # Field and graph checks (no Qt)
 │   ├── storage/           # Admin project.json read/write
 │   ├── crypto/            # KDF + AEAD (Milestone 2)
-│   └── bundle/            # Reader/writer (Milestone 3)
+│   └── bundle/            # Reader/writer and generate-time password sheet
 └── shared/                # Constants, errors, small helpers
 ```
 
@@ -68,10 +68,11 @@ MyCourse/
 │   ├── block-001/   # source files copied or referenced relatively
 │   └── block-002/
 └── output/
-    └── MyCourse.audiobundle
+    ├── MyCourse.audiobundle
+    └── MyCourse-passwords.txt   # generate time only; not part of project.json
 ```
 
-`project.json` is UTF-8 JSON. Load/save reject any password/secret keys.
+`project.json` is UTF-8 JSON. Load/save reject any password/secret keys. The password text file is written only when generating a bundle, next to the `.audiobundle`, so it can be shared separately.
 
 ## Threading
 
@@ -92,11 +93,11 @@ Implemented in `audio_bundle.core.crypto`, independent of Qt:
 
 ## Admin UI (Milestone 4)
 
-`audio_bundle.admin` is a PySide6 app. `ProjectWorkspace` copies imported files into `blocks/<block-id>/`, saves `project.json`, and calls `write_bundle` from a worker thread. Unlock method (custom password, Windows authentication, or none) is a **project** setting applied to every block. Client policies (one block at a time, sequential open **within each folder**) are project settings. Passwords are session-only in Admin. Generate Bundle also writes a separate `*-passwords.txt` next to the `.audiobundle` for independent sharing.
+`audio_bundle.admin` is a PySide6 app. `ProjectWorkspace` copies imported files into `blocks/<block-id>/`, saves `project.json`, and calls `write_bundle` from a worker thread. **Add folder** always adds the next top-level day (Day 1, Day 2, …). Unlock method (custom password, Windows authentication, or none) is a **project** setting applied to every block. Client policies (one block at a time, sequential open **within each folder**) are project settings. Passwords are session-only in Admin. Generate Bundle also writes a separate `*-passwords.txt` next to the `.audiobundle` for independent sharing.
 
 ## Client UI (Milestone 5)
 
-`audio_bundle.client` requires a Windows sign-in (username/password or Hello/PIN/fingerprint for the current user) before opening a bundle. It then opens the bundle on a worker thread, shows the folder/block tree, unlocks using the course-wide method, and decrypts selected files into a process-private temp directory. Keyboard shortcuts are listed with F1.
+`audio_bundle.client` requires a Windows sign-in (username/password or Hello/PIN/fingerprint for the current user) before opening a bundle. It then opens the bundle on a worker thread, shows the day/block tree (🔒 until opened, 🔓 while open, ✓ after opened), unlocks using the course-wide method, and decrypts selected files into a process-private temp directory. Keyboard shortcuts are listed with F1. See [COURSE_STRUCTURE.md](COURSE_STRUCTURE.md).
 
 ## Client playback (Milestones 6–7)
 

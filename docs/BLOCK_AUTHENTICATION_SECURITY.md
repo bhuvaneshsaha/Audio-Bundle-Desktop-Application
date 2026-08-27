@@ -2,7 +2,7 @@
 
 This note explains how Audio Bundle protects course files when the Admin chooses **one unlock method for the whole course**. Unlock method is a project setting, not a per-block setting.
 
-Related: [SECURITY.md](SECURITY.md) (crypto), [AUTHENTICATION.md](AUTHENTICATION.md) (Client UI), [BUNDLE_FORMAT.md](BUNDLE_FORMAT.md) (on-disk layout).
+Related: [SECURITY.md](SECURITY.md) (crypto), [AUTHENTICATION.md](AUTHENTICATION.md) (Client UI), [BUNDLE_FORMAT.md](BUNDLE_FORMAT.md) (on-disk layout), [COURSE_STRUCTURE.md](COURSE_STRUCTURE.md) (folders and per-day sequence).
 
 ## What the Admin sets
 
@@ -16,7 +16,7 @@ On the project window, **Block unlock method (all blocks)** is one of:
 
 Optional **Windows allow-list** (when method is Windows): `DOMAIN\user`, `user@domain`, or later `group:DOMAIN\Group`. An empty list means any Windows account that signs in successfully may open blocks.
 
-Course-wide policies still apply: **open blocks in order**, and **only one unlocked block at a time**.
+Course-wide policies still apply: **open blocks in order within each day folder**, and **only one unlocked block at a time**. Folders are not sequenced. Details: [COURSE_STRUCTURE.md](COURSE_STRUCTURE.md).
 
 ## Two different jobs: encryption vs authorization
 
@@ -96,3 +96,5 @@ Goals that *are* in scope: keep media confidential at rest, detect tampering (AE
 * For custom passwords: set a password on every block in this Admin session.
 * For Windows: optionally list allowed accounts; leave blank for any signed-in Windows user.
 * Remind operators: Hello = current Windows session only; shared PCs use passwords.
+* After Generate Bundle, keep `{bundle}-passwords.txt` separate from the encrypted file. It is not inside the `.audiobundle`.
+* Sequence is per day folder. Day 2 Block 1 does not wait on Day 1.

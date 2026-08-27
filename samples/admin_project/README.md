@@ -14,6 +14,8 @@ python scripts/generate_sample_bundle.py
 
 Output: `samples/Sample_Course.audiobundle` and `samples/Sample_Course-passwords.txt`
 
+The password list is a sidecar next to the bundle, not stored in `project.json`. Course folders are a single top level (Day 1, Day 2, …); sequence is per day. See [COURSE_STRUCTURE.md](../../docs/COURSE_STRUCTURE.md).
+
 Sample passwords (documentation only; never used in production projects):
 
 * Main: `sample-main`

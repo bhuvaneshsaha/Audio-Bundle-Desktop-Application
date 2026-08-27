@@ -1,5 +1,11 @@
 # Build an Offline Secure Audio Bundle Desktop Application
 
+This file is the original product brief. Where it differs from the running app, follow the design docs:
+
+* Course tree (one folder level, Day 1 / Day 2, sequence per folder): [docs/COURSE_STRUCTURE.md](docs/COURSE_STRUCTURE.md)
+* Course-wide block unlock (not per-block method): [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md)
+* Password sheet next to Generate Bundle output: [docs/SECURITY.md](docs/SECURITY.md)
+
 ## 1. Project Overview
 
 Build a **fully offline desktop application in Python** for securely distributing audio lessons and PDF documents to clients.

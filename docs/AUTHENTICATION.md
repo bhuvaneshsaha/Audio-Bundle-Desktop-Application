@@ -29,6 +29,20 @@ The method applies to **every block**. It is not set per block.
 
 New projects default both on. Bundles generated without these fields stay off (older files).
 
+Folder tree, one day-folder level, and Client lock marks: [COURSE_STRUCTURE.md](COURSE_STRUCTURE.md).
+
+## Client block marks
+
+| Mark | Meaning |
+| --- | --- |
+| 🔒 | Not opened yet (default, including the first block in a day) |
+| 🔓 | Currently open |
+| ✓ | Opened earlier in this session |
+
+## Password sheet
+
+Generate Bundle writes `{bundle-stem}-passwords.txt` beside the `.audiobundle` (main password, and block passwords when the course uses custom passwords). Share that file independently of the encrypted bundle. It is not written into `project.json`.
+
 ## Keyboard access
 
 Press **F1** in the Client for the shortcut list (back, browse, play/pause, seek, volume, folder/block tree).
