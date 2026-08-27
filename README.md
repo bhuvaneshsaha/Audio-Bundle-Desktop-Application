@@ -54,10 +54,10 @@ audio-bundle-admin
 ```
 
 1. **New project** — choose a parent folder and course name. The app creates `project.json`, `blocks/`, and `output/`.
-2. Add blocks, then **Add files** to import MP3/WAV/M4A/AAC or PDF. Drag the ☰ rows to set playback/display order.
+2. Add **day folders** (Day 1, Day 2, … at one level; they can be renamed) and **blocks** inside the selected day. Folders are organization only; sequence is per day. Then **Add files** to import MP3/WAV/M4A/AAC or PDF. Drag the ☰ file rows to set playback/display order.
 3. Choose **one unlock method for all blocks**: custom password, Windows authentication, or no password. Custom passwords stay in session memory (Show password is available). Optional Windows allow-list: `DOMAIN\user`, `user@domain`, or later `group:DOMAIN\Group`.
-4. Course options: auto-play, **one unlocked block at a time**, **open blocks in order**.
-5. **Save** writes `project.json` (never passwords). **Generate Bundle** asks for the main password.
+4. Course options: auto-play, **one unlocked block at a time**, **open blocks in order within each folder**.
+5. **Save** writes `project.json` (never passwords). **Generate Bundle** asks for the main password and writes the `.audiobundle` plus a separate `*-passwords.txt` you can share independently.
 
 Opening a bundle: run `audio-bundle-client`. The sample editable project lives at `samples/admin_project/project.json`.
 
@@ -69,7 +69,7 @@ audio-bundle-client
 
 1. **Windows sign-in** (required): user name and password, or Windows Hello / PIN / fingerprint for the account already logged on to this PC. Shared machines can have more than one user — type credentials to sign in as someone else. Use `DOMAIN\user` or `user@domain` after Active Directory join.
 2. Choose a `.audiobundle` and enter the **main password**.
-3. Unlock blocks with the **course-wide** method the Admin chose (Windows again, custom password, or none). Press **F1** for keyboard shortcuts. If sequential open is enabled, finish earlier blocks first. If single-active is enabled, opening another block locks the previous one.
+3. Unlock blocks with the **course-wide** method the Admin chose (Windows again, custom password, or none). Folders can be opened in any order; block sequence applies only inside the same folder. Press **F1** for keyboard shortcuts. If single-active is enabled, opening another block locks the previous one.
 4. Select a file to decrypt and view it. Closing the bundle deletes the private temporary decrypt folder.
 
 A sample bundle is at `samples/Sample_Course.audiobundle` (passwords in `samples/admin_project/README.md`).

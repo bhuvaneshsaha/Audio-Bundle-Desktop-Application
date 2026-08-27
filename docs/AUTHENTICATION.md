@@ -25,10 +25,10 @@ The method applies to **every block**. It is not set per block.
 ## Course policies (Admin checkboxes)
 
 * **One unlocked block at a time** — opening block B locks block A and deletes A’s temp media.
-* **Open in sequence** — block 2 cannot unlock until block 1 has been opened at least once in this Client session.
+* **Open in sequence** (default on for new projects): a block cannot open until **earlier blocks in the same folder** have been opened at least once in this session. Other folders are independent. Folders themselves are never sequenced.
 
 New projects default both on. Bundles generated without these fields stay off (older files).
 
 ## Keyboard access
 
-Press **F1** in the Client for the shortcut list (back, browse, play/pause, seek, volume, block list).
+Press **F1** in the Client for the shortcut list (back, browse, play/pause, seek, volume, folder/block tree).

@@ -37,7 +37,7 @@ This is not consumer DRM. A modified unofficial client that already has the main
 ## Client policies (Admin settings)
 
 * **Single active block** (default on for new projects): unlocking a block locks the previous one and deletes its temp files.
-* **Sequential unlock** (default on for new projects): block *n* cannot open until blocks `0..n-1` have been opened at least once in this session.
+* **Sequential unlock** (default on for new projects): block *n* in a folder cannot open until earlier **sibling blocks** in that folder have been opened at least once in this session. Starting another folder does not require finishing the first.
 
 Old bundles that omit these flags keep the previous behaviour (both off).
 
@@ -82,6 +82,8 @@ Never stored in:
 * Qt settings
 * temp files
 * source
+
+At **Generate Bundle** time the Admin writes a separate `{bundle}-passwords.txt` next to the `.audiobundle`. That file is plaintext on purpose so it can be printed or sent independently of the encrypted course. It is not part of the bundle and is not saved into `project.json`. Treat it like any other password list.
 
 Wrong main or block password: generic failure, no distinction that leaks whether a particular field was tampered vs mistyped **when the wrap blob does not decrypt**. After a successful main unlock, a later GCM failure on `EMAN`/`BLOB` is reported as **corruption/tamper**, not as a wrong password.
 

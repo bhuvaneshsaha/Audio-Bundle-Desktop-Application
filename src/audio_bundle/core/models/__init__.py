@@ -1,5 +1,7 @@
 from audio_bundle.core.models.auth_method import BlockAuthMethod
 from audio_bundle.core.models.block import Block
+from audio_bundle.core.models.folder import Folder
+from audio_bundle.core.models.node import NodeType
 from audio_bundle.core.models.manifest import (
     BundleBlockContents,
     BundleBlockSummary,
@@ -17,7 +19,9 @@ __all__ = [
     "BundleBlockSummary",
     "BundleFileEntry",
     "BundleManifest",
+    "Folder",
     "MediaItem",
     "MediaType",
+    "NodeType",
     "Project",
 ]

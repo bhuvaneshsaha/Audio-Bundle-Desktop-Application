@@ -4,6 +4,7 @@ import wave
 from pathlib import Path
 
 from audio_bundle.core.bundle import write_bundle
+from audio_bundle.core.bundle.password_sheet import write_password_sheet
 from audio_bundle.core.crypto import CryptoEngine, KdfProfile
 from audio_bundle.core.storage import load_project
 
@@ -50,9 +51,14 @@ def main() -> None:
         source_root=PROJECT_DIR,
         engine=CryptoEngine(kdf_profile=KdfProfile.TEST),
     )
+    sheet = write_password_sheet(
+        project,
+        OUTPUT,
+        main_password=MAIN_PASSWORD,
+        block_passwords=BLOCK_PASSWORDS,
+    )
     print(f"Wrote {OUTPUT}")
-    print(f"Main password: {MAIN_PASSWORD}")
-    print("Block passwords: Introduction=sample-intro, Lesson 1=sample-lesson, Exercises=sample-exercises")
+    print(f"Wrote {sheet}")
 
 
 if __name__ == "__main__":

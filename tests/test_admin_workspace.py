@@ -55,6 +55,12 @@ def test_create_save_reload_and_generate(tmp_path: Path) -> None:
     )
     payload = json.loads(reloaded.project_file.read_text(encoding="utf-8"))
     assert_no_secret_fields(payload)
+    sheet = bundle_path.with_name(f"{bundle_path.stem}-passwords.txt")
+    assert sheet.is_file()
+    sheet_text = sheet.read_text(encoding="utf-8")
+    assert "main-secret" in sheet_text
+    assert "pw-Introduction" in sheet_text
+    assert "pw-Lesson 1" in sheet_text
     opened = open_bundle(bundle_path, "main-secret")
     assert [block.name for block in opened.manifest.blocks] == ["Lesson 1", "Introduction"]
     block = next(block for block in opened.manifest.blocks if block.name == "Introduction")

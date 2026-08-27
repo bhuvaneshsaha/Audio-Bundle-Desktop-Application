@@ -2,23 +2,39 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtWidgets import (
+    QAbstractItemView,
     QDialog,
     QDialogButtonBox,
     QLabel,
     QLineEdit,
-    QListWidget,
-    QListWidgetItem,
     QMessageBox,
     QProgressDialog,
+    QTreeWidget,
+    QTreeWidgetItem,
     QVBoxLayout,
     QWidget,
 )
 
+from audio_bundle.client.block_status import block_status_icon
 from audio_bundle.client.windows_login import WindowsSignInDialog
 from audio_bundle.client.workers import UnlockBlockWorker
 from audio_bundle.core.bundle.session import ClientSession
 from audio_bundle.core.models.auth_method import BlockAuthMethod
+from audio_bundle.core.models.node import NodeType
+from audio_bundle.core.models.tree import walk_tree
 from audio_bundle.shared.messages import user_message
+
+ROLE_ID = Qt.ItemDataRole.UserRole
+ROLE_KIND = Qt.ItemDataRole.UserRole + 1
+
+
+def _block_label(session: ClientSession, block) -> str:
+    mark = block_status_icon(
+        unlocked=session.is_unlocked(block.id),
+        opened=session.was_opened(block.id),
+        sequence_locked=session.is_sequence_locked(block.id),
+    )
+    return f"{mark}  {block.name}"
 
 
 class UnlockDialog(QDialog):
@@ -62,13 +78,19 @@ class BundleView(QWidget):
         self._title.setStyleSheet("font-size: 24px; font-weight: 600;")
         layout.addWidget(self._title)
         self._hint = QLabel(
-            "Select a block and press Enter to unlock it. "
-            "Unlock method is set by the Admin (Windows, custom password, or none)."
+            "Folders are for organization only. Blocks show 🔒 until they are opened, "
+            "🔓 while a block is open, and ✓ after it has been opened in this session. "
+            "Sequence applies only to blocks in the same folder."
         )
         self._hint.setWordWrap(True)
         layout.addWidget(self._hint)
-        self._blocks = QListWidget()
-        self._blocks.setAccessibleName("Blocks")
+        self._blocks = QTreeWidget()
+        self._blocks.setHeaderHidden(True)
+        self._blocks.setColumnCount(1)
+        self._blocks.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self._blocks.setAccessibleName("Folders and blocks")
+        self._blocks.setRootIsDecorated(True)
+        self._blocks.setItemsExpandable(True)
         self._blocks.itemActivated.connect(self._on_activated)
         layout.addWidget(self._blocks, 1)
 
@@ -83,24 +105,50 @@ class BundleView(QWidget):
         if self._session is None:
             return
         current = None
-        if self._blocks.currentItem() is not None:
-            current = str(self._blocks.currentItem().data(Qt.ItemDataRole.UserRole))
+        item = self._blocks.currentItem()
+        if item is not None:
+            current = str(item.data(0, ROLE_ID))
         self._blocks.clear()
-        for block in self._session.opened.manifest.blocks:
-            lock = "Unlocked" if self._session.is_unlocked(block.id) else "Locked"
-            row = QListWidgetItem(f"{lock} — {block.name}")
-            row.setData(Qt.ItemDataRole.UserRole, block.id)
-            row.setToolTip(block.name)
-            self._blocks.addItem(row)
-            if current == block.id:
-                self._blocks.setCurrentItem(row)
-        if self._blocks.currentRow() < 0 and self._blocks.count():
-            self._blocks.setCurrentRow(0)
+        items_by_id: dict[str, QTreeWidgetItem] = {}
+        first_block: QTreeWidgetItem | None = None
+        selected: QTreeWidgetItem | None = None
+        for kind, node in walk_tree(self._session.opened.manifest.folders, self._session.opened.manifest.blocks):
+            if kind is NodeType.FOLDER:
+                label = f"📁  {node.name}"
+                row = QTreeWidgetItem([label])
+                row.setData(0, ROLE_ID, node.id)
+                row.setData(0, ROLE_KIND, str(NodeType.FOLDER))
+                row.setToolTip(0, "Folder — organization only, no sequence")
+                row.setChildIndicatorPolicy(QTreeWidgetItem.ChildIndicatorPolicy.DontShowIndicatorWhenChildless)
+            else:
+                label = _block_label(self._session, node)
+                row = QTreeWidgetItem([label])
+                row.setData(0, ROLE_ID, node.id)
+                row.setData(0, ROLE_KIND, str(NodeType.BLOCK))
+                row.setToolTip(0, node.name)
+                row.setChildIndicatorPolicy(QTreeWidgetItem.ChildIndicatorPolicy.DontShowIndicator)
+                if first_block is None:
+                    first_block = row
+            parent_id = node.parent_id
+            if parent_id and parent_id in items_by_id:
+                items_by_id[parent_id].addChild(row)
+            else:
+                self._blocks.addTopLevelItem(row)
+            items_by_id[node.id] = row
+            if current == node.id:
+                selected = row
+        self._blocks.expandAll()
+        target = selected or first_block
+        if target is not None:
+            self._blocks.setCurrentItem(target)
 
-    def _on_activated(self, item: QListWidgetItem) -> None:
+    def _on_activated(self, item: QTreeWidgetItem) -> None:
         if self._session is None or item is None:
             return
-        block_id = str(item.data(Qt.ItemDataRole.UserRole))
+        if str(item.data(0, ROLE_KIND)) != str(NodeType.BLOCK):
+            item.setExpanded(not item.isExpanded())
+            return
+        block_id = str(item.data(0, ROLE_ID))
         if self._session.is_unlocked(block_id):
             self.openBlock.emit(block_id)
             return

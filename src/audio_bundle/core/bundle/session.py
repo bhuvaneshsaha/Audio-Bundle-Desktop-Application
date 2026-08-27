@@ -32,6 +32,16 @@ class ClientSession:
     def is_unlocked(self, block_id: str) -> bool:
         return block_id in self._unlocked
 
+    def was_opened(self, block_id: str) -> bool:
+        return block_id in self._opened_once
+
+    def is_sequence_locked(self, block_id: str) -> bool:
+        try:
+            self.ensure_can_unlock(block_id)
+        except BundleError as exc:
+            return exc.code == "sequential_block_required"
+        return False
+
     def ensure_can_unlock(self, block_id: str) -> None:
         self.block_summary(block_id)
         if block_id not in self._unlocked:
@@ -55,7 +65,6 @@ class ClientSession:
     ) -> UnlockedBlock:
         if block_id in self._unlocked:
             return self._unlocked[block_id]
-        summary = self.block_summary(block_id)
         self._assert_sequential(block_id)
         method = self.opened.manifest.block_auth_method
         principals = self.opened.manifest.windows_principals
@@ -97,9 +106,12 @@ class ClientSession:
     def _assert_sequential(self, block_id: str) -> None:
         if not self.opened.manifest.sequential_unlock:
             return
-        blocks = self.opened.manifest.blocks
-        index = next(i for i, block in enumerate(blocks) if block.id == block_id)
-        for previous in blocks[:index]:
+        from audio_bundle.core.models.tree import sibling_blocks
+
+        summary = self.block_summary(block_id)
+        siblings = sibling_blocks(self.opened.manifest.blocks, summary.parent_id)
+        index = next(i for i, block in enumerate(siblings) if block.id == block_id)
+        for previous in siblings[:index]:
             if previous.id not in self._opened_once:
                 raise BundleError(
                     f"Open “{previous.name}” before this block.",

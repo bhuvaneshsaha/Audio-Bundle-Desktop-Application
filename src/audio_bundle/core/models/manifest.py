@@ -9,7 +9,10 @@ from audio_bundle.core.models.auth_method import (
     parse_block_auth_method,
     parse_windows_principals,
 )
+from audio_bundle.core.models.folder import Folder
 from audio_bundle.core.models.media_type import MediaType
+from audio_bundle.core.models.node import parse_parent_id
+from audio_bundle.core.models.tree import blocks_in_tree_order
 from audio_bundle.core.validation.fields import parse_datetime, require_non_empty_name
 from audio_bundle.shared.constants import BUNDLE_FORMAT_VERSION
 from audio_bundle.shared.errors import ValidationError
@@ -19,11 +22,6 @@ from audio_bundle.shared.utilities import isoformat_utc, new_id, utc_now
 def _renumber_files(files: list[BundleFileEntry]) -> None:
     for index, entry in enumerate(files):
         entry.order = index
-
-
-def _renumber_blocks(blocks: list[BundleBlockSummary]) -> None:
-    for index, block in enumerate(blocks):
-        block.order = index
 
 
 @dataclass(slots=True)
@@ -95,11 +93,13 @@ class BundleBlockSummary:
     name: str
     order: int = 0
     id: str = field(default_factory=new_id)
+    parent_id: str | None = None
     auth_method: BlockAuthMethod = BlockAuthMethod.PASSWORD
     windows_principals: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         self.name = require_non_empty_name(self.name, field="Block name")
+        self.parent_id = parse_parent_id(self.parent_id)
         if not isinstance(self.order, int) or self.order < 0:
             raise ValidationError("Block order must be a non-negative integer.", code="invalid_order")
         if isinstance(self.auth_method, str):
@@ -107,7 +107,14 @@ class BundleBlockSummary:
         self.windows_principals = parse_windows_principals(self.windows_principals)
 
     def to_dict(self) -> dict[str, Any]:
-        payload = {"id": self.id, "name": self.name, "order": self.order, "auth_method": str(self.auth_method)}
+        payload = {
+            "id": self.id,
+            "parent_id": self.parent_id,
+            "name": self.name,
+            "order": self.order,
+            "sort_order": self.order,
+            "auth_method": str(self.auth_method),
+        }
         if self.auth_method is BlockAuthMethod.WINDOWS:
             payload["windows_principals"] = list(self.windows_principals)
         return payload
@@ -119,7 +126,8 @@ class BundleBlockSummary:
         return cls(
             id=str(payload["id"]) if "id" in payload else new_id(),
             name=payload["name"],
-            order=int(payload.get("order", 0)),
+            parent_id=parse_parent_id(payload.get("parent_id")),
+            order=int(payload.get("sort_order", payload.get("order", 0))),
             auth_method=parse_block_auth_method(payload.get("auth_method")),
             windows_principals=parse_windows_principals(payload.get("windows_principals")),
         )
@@ -190,6 +198,7 @@ class BundleManifest:
     format_version: int = BUNDLE_FORMAT_VERSION
     bundle_id: str = field(default_factory=new_id)
     created_at: datetime = field(default_factory=utc_now)
+    folders: list[Folder] = field(default_factory=list)
     blocks: list[BundleBlockSummary] = field(default_factory=list)
     autoplay_on_open: bool = False
     single_active_block: bool = False
@@ -204,9 +213,8 @@ class BundleManifest:
                 f"Unsupported bundle format version {self.format_version}.",
                 code="unsupported_bundle_version",
             )
-        self.blocks = sorted(self.blocks, key=lambda block: block.order)
-        _renumber_blocks(self.blocks)
-        ids = [block.id for block in self.blocks]
+        self.blocks = list(self.blocks)
+        ids = [block.id for block in self.blocks] + [folder.id for folder in self.folders]
         if len(ids) != len(set(ids)):
             raise ValidationError("Duplicate block id in bundle manifest.", code="duplicate_id")
         if isinstance(self.block_auth_method, str):
@@ -227,6 +235,7 @@ class BundleManifest:
             "sequential_unlock": self.sequential_unlock,
             "block_auth_method": str(self.block_auth_method),
             "windows_principals": list(self.windows_principals),
+            "folders": [folder.to_dict() for folder in self.folders],
             "blocks": [block.to_dict() for block in self.blocks],
         }
 
@@ -239,6 +248,10 @@ class BundleManifest:
         raw_blocks = payload.get("blocks", [])
         if not isinstance(raw_blocks, list):
             raise ValidationError("Bundle blocks must be a list.", code="invalid_blocks")
+        raw_folders = payload.get("folders", [])
+        if not isinstance(raw_folders, list):
+            raise ValidationError("Bundle folders must be a list.", code="invalid_folders")
+        folders = [Folder.from_dict(raw) for raw in raw_folders]
         blocks = [BundleBlockSummary.from_dict(raw) for raw in raw_blocks]
         auth_method = payload.get("block_auth_method")
         if auth_method is None and blocks:
@@ -258,6 +271,7 @@ class BundleManifest:
                 if created_at
                 else utc_now()
             ),
+            folders=folders,
             blocks=blocks,
             autoplay_on_open=bool(payload.get("autoplay_on_open", False)),
             single_active_block=bool(payload.get("single_active_block", False)),
@@ -274,6 +288,8 @@ class BundleManifest:
             raise ValidationError("Expected a Project model.", code="invalid_project")
         method = getattr(project, "block_auth_method", BlockAuthMethod.PASSWORD)
         principals = list(getattr(project, "windows_principals", []))
+        folders = list(getattr(project, "folders", []))
+        ordered_blocks = blocks_in_tree_order(folders, project.blocks) or list(project.blocks)
         return cls(
             title=project.name,
             autoplay_on_open=bool(getattr(project, "autoplay_on_open", False)),
@@ -281,14 +297,16 @@ class BundleManifest:
             sequential_unlock=bool(getattr(project, "sequential_unlock", False)),
             block_auth_method=method,
             windows_principals=principals,
+            folders=[Folder.from_dict(folder.to_dict()) for folder in folders],
             blocks=[
                 BundleBlockSummary(
                     id=block.id,
                     name=block.name,
+                    parent_id=block.parent_id,
                     order=block.order,
                     auth_method=method,
                     windows_principals=principals,
                 )
-                for block in project.blocks
+                for block in ordered_blocks
             ],
         )
