@@ -22,6 +22,8 @@ class CourseTree(QTreeWidget):
         self.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.setUniformRowHeights(True)
         self.setAccessibleName("Course folders and blocks")
+        self.setRootIsDecorated(True)
+        self.setItemsExpandable(True)
         self.itemSelectionChanged.connect(self.selectionChangedId)
 
     def selected_id(self) -> str | None:
@@ -53,12 +55,16 @@ class CourseTree(QTreeWidget):
                 kind = str(NodeType.FOLDER)
             else:
                 count = len(node.items)
-                label = f"▸  {node.name}    ({count} file{'s' if count != 1 else ''})"
+                label = f"{node.name}    ({count} file{'s' if count != 1 else ''})"
                 kind = str(NodeType.BLOCK)
             row = QTreeWidgetItem([label])
             row.setData(0, ROLE_ID, node.id)
             row.setData(0, ROLE_KIND, kind)
             row.setToolTip(0, node.name)
+            if kind == str(NodeType.FOLDER):
+                row.setChildIndicatorPolicy(QTreeWidgetItem.ChildIndicatorPolicy.DontShowIndicatorWhenChildless)
+            else:
+                row.setChildIndicatorPolicy(QTreeWidgetItem.ChildIndicatorPolicy.DontShowIndicator)
             if parent_item is None:
                 self.addTopLevelItem(row)
             else:

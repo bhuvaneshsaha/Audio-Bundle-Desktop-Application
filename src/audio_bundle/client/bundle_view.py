@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from audio_bundle.client.block_status import block_status_icon
 from audio_bundle.client.windows_login import WindowsSignInDialog
 from audio_bundle.client.workers import UnlockBlockWorker
 from audio_bundle.core.bundle.session import ClientSession
@@ -25,6 +26,15 @@ from audio_bundle.shared.messages import user_message
 
 ROLE_ID = Qt.ItemDataRole.UserRole
 ROLE_KIND = Qt.ItemDataRole.UserRole + 1
+
+
+def _block_label(session: ClientSession, block) -> str:
+    mark = block_status_icon(
+        unlocked=session.is_unlocked(block.id),
+        opened=session.was_opened(block.id),
+        sequence_locked=session.is_sequence_locked(block.id),
+    )
+    return f"{mark}  {block.name}"
 
 
 class UnlockDialog(QDialog):
@@ -52,18 +62,6 @@ class UnlockDialog(QDialog):
         return self._password.text()
 
 
-def _block_label(session: ClientSession, block) -> str:
-    if session.is_unlocked(block.id):
-        mark = "→"
-    elif session.was_opened(block.id):
-        mark = "✓"
-    elif session.is_sequence_locked(block.id):
-        mark = "🔒"
-    else:
-        mark = "▸"
-    return f"{mark}  {block.name}"
-
-
 class BundleView(QWidget):
     openBlock = Signal(str)
 
@@ -80,9 +78,9 @@ class BundleView(QWidget):
         self._title.setStyleSheet("font-size: 24px; font-weight: 600;")
         layout.addWidget(self._title)
         self._hint = QLabel(
-            "Folders are for organization only. Open a block with Enter. "
-            "Sequence applies only to blocks in the same folder. "
-            "Unlock method is set by the Admin (Windows, custom password, or none)."
+            "Folders are for organization only. Blocks show 🔓 when they can be opened or are open, "
+            "🔒 when an earlier block in the same day must be opened first, and ✓ after they have been opened. "
+            "Sequence applies only to blocks in the same folder."
         )
         self._hint.setWordWrap(True)
         layout.addWidget(self._hint)
@@ -91,6 +89,8 @@ class BundleView(QWidget):
         self._blocks.setColumnCount(1)
         self._blocks.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self._blocks.setAccessibleName("Folders and blocks")
+        self._blocks.setRootIsDecorated(True)
+        self._blocks.setItemsExpandable(True)
         self._blocks.itemActivated.connect(self._on_activated)
         layout.addWidget(self._blocks, 1)
 
@@ -119,12 +119,14 @@ class BundleView(QWidget):
                 row.setData(0, ROLE_ID, node.id)
                 row.setData(0, ROLE_KIND, str(NodeType.FOLDER))
                 row.setToolTip(0, "Folder — organization only, no sequence")
+                row.setChildIndicatorPolicy(QTreeWidgetItem.ChildIndicatorPolicy.DontShowIndicatorWhenChildless)
             else:
                 label = _block_label(self._session, node)
                 row = QTreeWidgetItem([label])
                 row.setData(0, ROLE_ID, node.id)
                 row.setData(0, ROLE_KIND, str(NodeType.BLOCK))
                 row.setToolTip(0, node.name)
+                row.setChildIndicatorPolicy(QTreeWidgetItem.ChildIndicatorPolicy.DontShowIndicator)
                 if first_block is None:
                     first_block = row
             parent_id = node.parent_id

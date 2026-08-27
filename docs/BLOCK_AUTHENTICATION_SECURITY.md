@@ -46,7 +46,7 @@ KEK_block → AES-256-GCM wrap of BlockKey (BWKY)
 BlockKey → inner manifest + file blobs
 ```
 
-Admin keeps those passwords in **session memory** only. They are not written to `project.json`.
+Admin keeps those passwords in **session memory** only. They are not written to `project.json`. Generate Bundle writes a separate `*-passwords.txt` next to the `.audiobundle` so the list can be shared independently.
 
 ## Windows authentication (Client gate + bundle-key wrap)
 
