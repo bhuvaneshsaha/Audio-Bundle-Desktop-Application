@@ -26,7 +26,7 @@ def folder_depth(folders: Sequence[Any], folder_id: str | None) -> int:
         depth += 1
         if depth > MAX_FOLDER_DEPTH:
             raise ValidationError(
-                f"Folders may be nested at most {MAX_FOLDER_DEPTH} levels.",
+                "This course uses a single folder level (Day 1, Day 2, …).",
                 code="folder_depth",
             )
         current = folder.parent_id

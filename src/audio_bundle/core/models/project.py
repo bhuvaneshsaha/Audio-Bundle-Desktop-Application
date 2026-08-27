@@ -93,7 +93,7 @@ class Project:
         depth = folder_depth(self.folders, parent_id)
         if for_folder and depth >= MAX_FOLDER_DEPTH:
             raise ValidationError(
-                f"Folders may be nested at most {MAX_FOLDER_DEPTH} levels.",
+                "This course uses a single folder level (Day 1, Day 2, …).",
                 code="folder_depth",
             )
 

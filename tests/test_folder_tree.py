@@ -24,42 +24,49 @@ def test_root_folders_named_day_n_and_rename_is_cosmetic(tmp_path: Path) -> None
     assert first.name == "Day 1"
     assert second.name == "Day 2"
     assert third.name == "Day 3"
+    assert first.parent_id is None
+    assert second.parent_id is None
     workspace.rename_folder(first.id, "Maintenance")
     workspace.rename_folder(second.id, "AGDF.21")
     assert workspace.project.get_folder(first.id).name == "Maintenance"
-    nested = workspace.add_folder("URH12", parent_id=third.id)
-    assert nested.parent_id == third.id
-    block = workspace.add_block("Block 1", parent_id=nested.id)
-    assert block.parent_id == nested.id
+    block = workspace.add_block("Block 1", parent_id=third.id)
+    assert block.parent_id == third.id
     restored = Project.from_dict(workspace.project.to_dict())
     assert restored.get_folder(first.id).name == "Maintenance"
-    assert restored.get_block(block.id).parent_id == nested.id
+    assert restored.get_block(block.id).parent_id == third.id
     assert all(folder.node_type is NodeType.FOLDER for folder in restored.folders)
+    assert all(folder.parent_id is None for folder in restored.folders)
 
 
-def test_max_three_folder_levels(tmp_path: Path) -> None:
+def test_single_folder_level_rejects_subfolders(tmp_path: Path) -> None:
     workspace = ProjectWorkspace.create(tmp_path, "Depth")
     one = workspace.add_folder()
-    two = workspace.add_folder("L2", parent_id=one.id)
-    three = workspace.add_folder("L3", parent_id=two.id)
-    assert workspace.project.folder_depth_of(three.id) == 3
     with pytest.raises(ValidationError) as exc:
-        workspace.add_folder("L4", parent_id=three.id)
+        workspace.add_folder("Sub", parent_id=one.id)
     assert exc.value.code == "folder_depth"
-    workspace.add_block("Leaf", parent_id=three.id)
+    workspace.add_block("Leaf", parent_id=one.id)
+
+
+def test_add_folder_always_creates_next_day_at_root(tmp_path: Path) -> None:
+    workspace = ProjectWorkspace.create(tmp_path, "Days")
+    day1 = workspace.add_folder()
+    workspace.add_block("Inside day 1", parent_id=day1.id)
+    day2 = workspace.add_folder()
+    assert day2.name == "Day 2"
+    assert day2.parent_id is None
+    assert [folder.name for folder in workspace.project.folders] == ["Day 1", "Day 2"]
 
 
 def test_sequence_is_per_parent_folder_only(tmp_path: Path) -> None:
     workspace = ProjectWorkspace.create(tmp_path, "Seq")
     day1 = workspace.add_folder()
     day2 = workspace.add_folder()
-    urh = workspace.add_folder("URH12", parent_id=day2.id)
     audio = tmp_path / "a.mp3"
     audio.write_bytes(b"x")
     d1b1 = workspace.add_block("Day1 Block 1", parent_id=day1.id)
     d1b2 = workspace.add_block("Day1 Block 2", parent_id=day1.id)
-    d2b1 = workspace.add_block("Block 1", parent_id=urh.id)
-    d2b2 = workspace.add_block("Block 2", parent_id=urh.id)
+    d2b1 = workspace.add_block("Block 1", parent_id=day2.id)
+    d2b2 = workspace.add_block("Block 2", parent_id=day2.id)
     for block in (d1b1, d1b2, d2b1, d2b2):
         workspace.import_files(block.id, [audio])
         workspace.set_block_password(block.id, "pw")

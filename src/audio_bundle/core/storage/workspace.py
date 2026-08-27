@@ -133,14 +133,16 @@ class ProjectWorkspace:
     def add_folder(self, name: str | None = None, *, parent_id: str | None = None) -> Folder:
         from audio_bundle.core.models.tree import next_root_folder_name
 
-        if parent_id is None:
-            self.project.root_folder_seq += 1
-            folder_name = name or next_root_folder_name(
-                self.project.folders, sequence=self.project.root_folder_seq
+        if parent_id is not None:
+            raise ValidationError(
+                "This course uses a single folder level (Day 1, Day 2, …).",
+                code="folder_depth",
             )
-        else:
-            folder_name = name or self.project.default_nested_folder_name(parent_id)
-        folder = Folder(name=folder_name, parent_id=parent_id)
+        self.project.root_folder_seq += 1
+        folder_name = name or next_root_folder_name(
+            self.project.folders, sequence=self.project.root_folder_seq
+        )
+        folder = Folder(name=folder_name, parent_id=None)
         self.project.add_folder(folder)
         self.dirty = True
         return folder

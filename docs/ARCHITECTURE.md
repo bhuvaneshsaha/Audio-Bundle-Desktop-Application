@@ -33,11 +33,11 @@ Admin and Client share `core` and can be packaged as two PyInstaller entry point
 
 ### `Project`
 
-Editable admin document: name, timestamps, `Folder` tree (max three levels) and `Block` list. Schema versioned (`PROJECT_SCHEMA_VERSION`). Folders are labels only. Block sequence is scoped to the immediate parent folder.
+Editable admin document: name, timestamps, a single level of day folders (Day 1, Day 2, …) and `Block` list. Schema versioned (`PROJECT_SCHEMA_VERSION`). Folders are labels only. Block sequence is scoped to the immediate parent folder.
 
 ### `Folder` / `Block` (nodes)
 
-Each node has `id`, `parent_id` (null at the course root), `name`, `node_type` (`folder` \| `block`), and sibling `order` / `sort_order`. Root folders default to **Day 1, Day 2, …** and may be renamed to anything (`AGDF.21`, `Maintenance`, …). Names never change hierarchy or sequencing.
+Each node has `id`, `parent_id` (null for day folders; blocks point at a day), `name`, `node_type` (`folder` \| `block`), and sibling `order` / `sort_order`. Folders are a **single top level**, defaulting to **Day 1, Day 2, …**, and may be renamed to anything (`AGDF.21`, `Maintenance`, …). Names never change hierarchy or sequencing.
 
 ### `Block`
 

@@ -22,7 +22,7 @@ def test_admin_window_starts_offscreen() -> None:
     window.close()
 
 
-def test_project_window_shows_folder_tree(tmp_path: Path) -> None:
+def test_project_window_add_folder_stays_top_level(tmp_path: Path) -> None:
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     try:
         from PySide6.QtWidgets import QApplication
@@ -34,28 +34,15 @@ def test_project_window_shows_folder_tree(tmp_path: Path) -> None:
     app = QApplication.instance() or QApplication(["audio-bundle-admin"])
     workspace = ProjectWorkspace.create(tmp_path, "Tree UI")
     day1 = workspace.add_folder()
-    nested = workspace.add_folder("URH12", parent_id=day1.id)
-    workspace.add_block("Block 1", parent_id=nested.id)
+    workspace.add_block("Block 1", parent_id=day1.id)
     window = ProjectWindow(workspace)
     window.show()
     app.processEvents()
     assert window._blocks.topLevelItemCount() == 1
     assert "Day 1" in window._blocks.topLevelItem(0).text(0)
-    assert window._blocks.topLevelItem(0).childCount() == 1
-    window.close()
-
-
-def test_admin_window_starts_offscreen() -> None:
-    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
-    try:
-        from PySide6.QtWidgets import QApplication
-        from audio_bundle.admin.main_window import MainWindow
-    except ImportError as exc:
-        pytest.skip(f"Qt libraries are not available: {exc}")
-
-    app = QApplication.instance() or QApplication(["audio-bundle-admin"])
-    window = MainWindow()
-    window.show()
+    window._add_folder()
     app.processEvents()
-    assert "Audio Bundle Admin" in window.windowTitle()
+    assert [folder.name for folder in workspace.project.folders] == ["Day 1", "Day 2"]
+    assert all(folder.parent_id is None for folder in workspace.project.folders)
+    assert window._blocks.topLevelItemCount() == 2
     window.close()

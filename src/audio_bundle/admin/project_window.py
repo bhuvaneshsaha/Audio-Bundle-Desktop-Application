@@ -23,7 +23,6 @@ from audio_bundle.admin.course_tree import CourseTree
 from audio_bundle.core.models.auth_method import BlockAuthMethod
 from audio_bundle.core.models.node import NodeType
 from audio_bundle.core.storage.workspace import ProjectWorkspace
-from audio_bundle.shared.constants import MAX_FOLDER_DEPTH
 from audio_bundle.shared.messages import user_message
 
 
@@ -97,10 +96,16 @@ class ProjectWindow(QWidget):
         splitter = QSplitter(Qt.Orientation.Horizontal)
         left = QWidget()
         left_layout = QVBoxLayout(left)
-        left_layout.addWidget(QLabel("Folders and blocks"))
+        left_layout.addWidget(QLabel("Days and blocks"))
         self._blocks = CourseTree()
         self._blocks.selectionChangedId.connect(self._on_tree_selected)
         left_layout.addWidget(self._blocks, 1)
+        hint = QLabel(
+            "Add folder creates the next top-level day (Day 1, Day 2, …), even if Day 1 is selected. "
+            "Blocks go inside the selected day. Folder names can be changed; they do not affect sequence."
+        )
+        hint.setWordWrap(True)
+        left_layout.addWidget(hint)
         block_buttons = QHBoxLayout()
         add_folder = QPushButton("Add folder")
         add_block = QPushButton("Add block")
@@ -194,18 +199,6 @@ class ProjectWindow(QWidget):
         else:
             self._editor.show_block(None)
 
-    def _folder_parent_for_new(self) -> str | None:
-        kind = self._blocks.selected_kind()
-        node_id = self._blocks.selected_id()
-        if kind is None or node_id is None:
-            return None
-        if kind == str(NodeType.FOLDER):
-            depth = self._workspace.project.folder_depth_of(node_id)
-            if depth >= MAX_FOLDER_DEPTH:
-                return self._workspace.project.get_folder(node_id).parent_id
-            return node_id
-        return self._workspace.project.get_block(node_id).parent_id
-
     def _block_parent_for_new(self) -> str | None:
         kind = self._blocks.selected_kind()
         node_id = self._blocks.selected_id()
@@ -220,15 +213,8 @@ class ProjectWindow(QWidget):
         self._update_title()
 
     def _add_folder(self) -> None:
-        parent_id = self._folder_parent_for_new()
-        name = None
-        if parent_id is not None:
-            suggested = self._workspace.project.default_nested_folder_name(parent_id)
-            name, ok = QInputDialog.getText(self, "Add folder", "Folder name", text=suggested)
-            if not ok:
-                return
         try:
-            folder = self._workspace.add_folder(name, parent_id=parent_id)
+            folder = self._workspace.add_folder()
         except Exception as exc:
             QMessageBox.warning(self, "Audio Bundle", user_message(exc))
             return
